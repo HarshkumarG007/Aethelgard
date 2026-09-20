@@ -3,7 +3,9 @@ import { R2MediaStorage } from "./r2";
 import { LocalMediaStorage } from "./local";
 
 export function resolveMediaStorage(env: NodeJS.ProcessEnv = process.env): MediaStorage {
-  const isProduction = env.NODE_ENV === "production" || env.APP_ENV === "production";
+  const isProduction =
+    env.APP_ENV === "production" ||
+    (env.NODE_ENV === "production" && env.APP_ENV !== "development");
 
   if (isProduction) {
     const requiredKeys = [
@@ -36,7 +38,7 @@ export function resolveMediaStorage(env: NodeJS.ProcessEnv = process.env): Media
   });
 }
 
-// Lazy or eager storage singleton
+// Lazy storage singleton
 let storageInstance: MediaStorage | null = null;
 export function getStorage(): MediaStorage {
   if (!storageInstance) {
@@ -45,7 +47,14 @@ export function getStorage(): MediaStorage {
   return storageInstance;
 }
 
-export const storage = getStorage();
+export const storage: MediaStorage = new Proxy({} as MediaStorage, {
+  get(_target, prop) {
+    const instance = getStorage();
+    const value = (instance as unknown as Record<string | symbol, unknown>)[prop];
+    return typeof value === "function" ? (value as Function).bind(instance) : value;
+  },
+});
+
 export * from "./types";
 export { R2MediaStorage } from "./r2";
 export { LocalMediaStorage } from "./local";

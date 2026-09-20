@@ -7,6 +7,7 @@ export function proxy(request: NextRequest): NextResponse {
 
   // Coarse route protection: unauthenticated visits to protected sections redirect to /auth
   const isProtectedPath =
+    pathname === "/" ||
     pathname.startsWith("/sanctuary") ||
     pathname.startsWith("/admin") ||
     pathname === "/timeline" ||
