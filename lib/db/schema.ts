@@ -11,15 +11,23 @@ import {
   bigint,
   char,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  role: text("role").notNull().default("viewer"),
-  passphraseHash: text("passphrase_hash").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    role: text("role").notNull().default("viewer"),
+    passphraseHash: text("passphrase_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  () => [
+    check("users_role_check", sql`role IN ('viewer', 'admin')`),
+  ]
+);
 
 export const chapters = pgTable(
   "chapters",
@@ -74,6 +82,14 @@ export const memories = pgTable(
     index("idx_memories_user_chapter").on(table.userId, table.chapterId),
     index("idx_memories_user_favorite").on(table.userId, table.isFavorite),
     index("idx_memories_deleted").on(table.deletedAt),
+    check(
+      "memories_kind_check",
+      sql`kind IN ('standard', 'letter', 'milestone', 'future')`
+    ),
+    check(
+      "memories_emotion_check",
+      sql`emotion IS NULL OR emotion IN ('joy','nostalgia','longing','peace','excitement','gratitude','wonder')`
+    ),
   ]
 );
 
@@ -105,6 +121,14 @@ export const memoryAssets = pgTable(
   (table) => [
     index("idx_assets_memory").on(table.memoryId),
     index("idx_assets_status").on(table.status),
+    check(
+      "memory_assets_type_check",
+      sql`type IN ('image','video','audio','document')`
+    ),
+    check(
+      "memory_assets_status_check",
+      sql`status IN ('PENDING','UPLOAD_AUTHORIZED','UPLOADING','PROCESSING','READY','FAILED','DELETED')`
+    ),
   ]
 );
 
@@ -142,5 +166,9 @@ export const auditLogs = pgTable(
   (table) => [
     index("idx_audit_user_time").on(table.userId, table.createdAt),
     index("idx_audit_time").on(table.createdAt),
+    check(
+      "audit_logs_outcome_check",
+      sql`outcome IN ('success','failure')`
+    ),
   ]
 );

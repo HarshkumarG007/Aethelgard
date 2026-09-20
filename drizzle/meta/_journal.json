@@ -8,6 +8,13 @@
       "when": 1789880487380,
       "tag": "0000_giant_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789882362198,
+      "tag": "0001_adorable_nemesis",
+      "breakpoints": true
     }
   ]
 }
