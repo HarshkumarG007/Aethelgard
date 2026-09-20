@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { SpatialMemoryData } from "./state/sanctuary3d.types";
 import { useSanctuary3DStore } from "./state/sanctuary3d.store";
+import { createArtifactMaterial } from "./shaders/memoryAura";
 
 interface MemoryArtifactProps {
   memory: SpatialMemoryData;
@@ -18,7 +19,7 @@ export function MemoryArtifact({
   onNavigate,
 }: MemoryArtifactProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { artifact, hoverEnter, hoverLeave, focusArtifact, activateArtifact } =
+  const { artifact, quality, hoverEnter, hoverLeave, focusArtifact, activateArtifact } =
     useSanctuary3DStore();
 
   const isCurrent = artifact.activeId === memory.id;
@@ -43,7 +44,7 @@ export function MemoryArtifact({
     }
   }, [memory.kind]);
 
-  // Color selection based on emotion or kind
+  // Color selection based on kind
   const baseColor = useMemo(() => {
     switch (memory.kind) {
       case "milestone":
@@ -73,13 +74,24 @@ export function MemoryArtifact({
     }
   }, [artifactState]);
 
+  // Dual-path material (GLSL shader with Fresnel vs MeshStandardMaterial fallback)
+  const material = useMemo(() => {
+    return createArtifactMaterial({
+      color: baseColor,
+      emissiveIntensity,
+      opacity,
+      isReducedMotion: reducedMotion,
+      shaderProfile: quality.shaderProfile,
+    });
+  }, [baseColor, emissiveIntensity, opacity, reducedMotion, quality.shaderProfile]);
+
   // Seed offset for gentle asynchronous ambient animation
   const seedOffset = useMemo(
     () => (memory.position[0] * 13 + memory.position[2] * 7) % 100,
     [memory.position]
   );
 
-  // Animation loop with strict respect for prefers-reduced-motion
+  // Animation loop with strict respect for prefers-reduced-motion and zero per-frame allocations
   useFrame((_, delta) => {
     if (!meshRef.current) return;
 
@@ -106,20 +118,27 @@ export function MemoryArtifact({
     meshRef.current.scale.set(nextScale, nextScale, nextScale);
 
     // Subtle ambient levitation and slow rotation
-    const elapsed = Date.now() * 0.001 + seedOffset;
+    const elapsed = performance.now() * 0.001 + seedOffset;
     const floatY = Math.sin(elapsed * 1.2) * 0.08;
     meshRef.current.position.y = memory.position[1] + floatY;
 
     // Slow ambient rotation
     meshRef.current.rotation.y += delta * 0.2;
+
+    // Update GLSL uniform on mesh material if custom shader is active
+    const activeMat = meshRef.current.material;
+    if (activeMat instanceof THREE.ShaderMaterial && activeMat.uniforms.uTime) {
+      activeMat.uniforms.uTime.value += delta;
+    }
   });
 
   // Strict deterministic disposal on unmount
   useEffect(() => {
     return () => {
       geometry.dispose();
+      material.dispose();
     };
-  }, [geometry]);
+  }, [geometry, material]);
 
   const handlePointerOver = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
@@ -143,19 +162,11 @@ export function MemoryArtifact({
       ref={meshRef}
       position={memory.position}
       geometry={geometry}
+      material={material}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
       onClick={handleClick}
-    >
-      <meshStandardMaterial
-        color={baseColor}
-        roughness={0.35}
-        metalness={0.25}
-        emissive={baseColor}
-        emissiveIntensity={emissiveIntensity}
-        transparent
-        opacity={opacity}
-      />
-    </mesh>
+    />
   );
 }
+

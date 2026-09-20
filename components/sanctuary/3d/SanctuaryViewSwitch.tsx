@@ -32,6 +32,7 @@ interface SanctuaryViewSwitchProps {
 
 export function SanctuaryViewSwitch({
   memories,
+  chapters = [],
   children,
 }: SanctuaryViewSwitchProps) {
   const {
@@ -105,6 +106,7 @@ export function SanctuaryViewSwitch({
           ) : (
             <SanctuaryCanvas
               memories={memories}
+              chapters={chapters}
               onExitTo2D={exitTo2D}
             />
           )}

@@ -1,6 +1,9 @@
 import type {
   ArtifactContext,
   ArtifactEvent,
+  QualityContext,
+  QualityEvent,
+  QualityTier,
   ViewContext,
   ViewEvent,
 } from "./sanctuary3d.types";
@@ -16,6 +19,32 @@ export const INITIAL_VIEW_CONTEXT: Readonly<ViewContext> = Object.freeze({
   maxLosses: 3,
   circuitBreakerTripped: false,
   errorMessage: null,
+});
+
+export const QUALITY_PROFILES: Record<
+  QualityTier,
+  { targetDpr: number; moteCount: number; shaderProfile: "full" | "static" | "standard" }
+> = {
+  TIER_3: { targetDpr: 1.5, moteCount: 300, shaderProfile: "full" },
+  TIER_2: { targetDpr: 1.0, moteCount: 120, shaderProfile: "static" },
+  TIER_1: { targetDpr: 0.75, moteCount: 0, shaderProfile: "standard" },
+  EXHAUSTED: { targetDpr: 0.0, moteCount: 0, shaderProfile: "standard" },
+};
+
+export const TIER_THRESHOLDS_MS: Record<Exclude<QualityTier, "EXHAUSTED">, number> = {
+  TIER_3: 33.33,
+  TIER_2: 33.33,
+  TIER_1: 50.0,
+};
+
+export const DWELL_DURATION_MS = 3000;
+
+export const INITIAL_QUALITY_CONTEXT: Readonly<QualityContext> = Object.freeze({
+  tier: "TIER_3",
+  dwellElapsedMs: 0,
+  targetDpr: QUALITY_PROFILES.TIER_3.targetDpr,
+  moteCount: QUALITY_PROFILES.TIER_3.moteCount,
+  shaderProfile: QUALITY_PROFILES.TIER_3.shaderProfile,
 });
 
 /**
@@ -236,6 +265,15 @@ export function transitionView(
       };
     }
 
+    case "QUALITY_EXHAUSTED": {
+      return {
+        ...current,
+        state: "3D_FALLBACK",
+        errorMessage:
+          "Spatial rendering paused to preserve device performance.",
+      };
+    }
+
     case "RESET": {
       if (current.circuitBreakerTripped) {
         return {
@@ -250,3 +288,91 @@ export function transitionView(
       return current;
   }
 }
+
+/**
+ * Monotonic Adaptive Quality Machine:
+ * TIER_3 -> TIER_2 -> TIER_1 -> EXHAUSTED
+ *
+ * Invariants:
+ * - Monotonicity: Upward promotion is strictly rejected during an active session.
+ * - Hysteresis: Continuous degradation for DWELL_DURATION_MS (3000ms) required before stepping down.
+ * - Recovery: If performance recovers (avg frame time <= threshold) before 3000ms, dwell timer resets to 0.
+ * - Monotonic demotion: Dwell timer resets to 0 upon stepping down.
+ * - Exhaustion: When tier becomes EXHAUSTED, caller is notified to emit QUALITY_EXHAUSTED to SpatialViewMachine.
+ */
+export function transitionQuality(
+  current: QualityContext,
+  event: QualityEvent
+): QualityContext {
+  switch (event.type) {
+    case "PERF_SAMPLE": {
+      if (current.tier === "EXHAUSTED") {
+        return current;
+      }
+
+      const threshold = TIER_THRESHOLDS_MS[current.tier];
+      if (event.avgDeltaMs > threshold) {
+        const nextDwell = current.dwellElapsedMs + event.elapsedMs;
+        if (nextDwell >= DWELL_DURATION_MS) {
+          return stepDownQuality(current);
+        }
+        return {
+          ...current,
+          dwellElapsedMs: nextDwell,
+        };
+      } else {
+        // Performance recovered before dwell duration: reset dwell timer
+        if (current.dwellElapsedMs > 0) {
+          return {
+            ...current,
+            dwellElapsedMs: 0,
+          };
+        }
+        return current;
+      }
+    }
+
+    case "STEP_DOWN": {
+      return stepDownQuality(current);
+    }
+
+    case "ATTEMPT_PROMOTION": {
+      // Upward promotion is strictly prohibited during an active 3D session
+      return current;
+    }
+
+    case "RESET": {
+      return { ...INITIAL_QUALITY_CONTEXT };
+    }
+
+    default:
+      return current;
+  }
+}
+
+function stepDownQuality(current: QualityContext): QualityContext {
+  let nextTier: QualityTier;
+  switch (current.tier) {
+    case "TIER_3":
+      nextTier = "TIER_2";
+      break;
+    case "TIER_2":
+      nextTier = "TIER_1";
+      break;
+    case "TIER_1":
+      nextTier = "EXHAUSTED";
+      break;
+    case "EXHAUSTED":
+      return current;
+  }
+
+  const profile = QUALITY_PROFILES[nextTier];
+  return {
+    tier: nextTier,
+    dwellElapsedMs: 0,
+    targetDpr: profile.targetDpr,
+    moteCount: profile.moteCount,
+    shaderProfile: profile.shaderProfile,
+  };
+}
+

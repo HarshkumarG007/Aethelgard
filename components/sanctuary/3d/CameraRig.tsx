@@ -3,52 +3,43 @@
 import { useRef, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import type { SpatialMemoryData } from "./state/sanctuary3d.types";
-import { useSanctuary3DStore } from "./state/sanctuary3d.store";
 
 interface CameraRigProps {
-  memories: SpatialMemoryData[];
+  activePosition?: [number, number, number] | null;
   reducedMotion: boolean;
 }
 
-const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 5, 14);
+const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 9, 20);
 const DEFAULT_LOOK_AT = new THREE.Vector3(0, 0, 0);
 
-export function CameraRig({ memories, reducedMotion }: CameraRigProps) {
+export function CameraRig({ activePosition, reducedMotion }: CameraRigProps) {
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
-  const { artifact } = useSanctuary3DStore();
-
-  // Find targeted memory position
-  const activeMemory = useMemo(() => {
-    if (!artifact.activeId) return null;
-    return memories.find((m) => m.id === artifact.activeId) || null;
-  }, [artifact.activeId, memories]);
 
   const targetCameraPos = useMemo(() => {
-    if (!activeMemory) {
+    if (!activePosition) {
       return DEFAULT_CAMERA_POS;
     }
-    const [x, y, z] = activeMemory.position;
-    // Position camera facing the artifact slightly above and offset
+    const [x, y, z] = activePosition;
+    // Position camera facing the artifact slightly elevated
     const dir = new THREE.Vector3(x, 0, z).normalize();
     if (dir.lengthSq() < 0.001) dir.set(0, 0, 1);
-    return new THREE.Vector3(x + dir.x * 4, y + 1.2, z + dir.z * 4);
-  }, [activeMemory]);
+    return new THREE.Vector3(x + dir.x * 4.5, y + 1.2, z + dir.z * 4.5);
+  }, [activePosition]);
 
   const targetLookAt = useMemo(() => {
-    if (!activeMemory) {
+    if (!activePosition) {
       return DEFAULT_LOOK_AT;
     }
-    const [x, y, z] = activeMemory.position;
+    const [x, y, z] = activePosition;
     return new THREE.Vector3(x, y, z);
-  }, [activeMemory]);
+  }, [activePosition]);
 
   useFrame((state, delta) => {
     const cam = state.camera;
     if (!cam) return;
 
     if (reducedMotion) {
-      // Instantaneous placement: zero interpolation
+      // Instantaneous placement: zero interpolation or camera lag
       cam.position.copy(targetCameraPos);
       currentLookAt.current.copy(targetLookAt);
       cam.lookAt(currentLookAt.current);

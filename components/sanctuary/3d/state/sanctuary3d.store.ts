@@ -4,13 +4,17 @@ import { create } from "zustand";
 import type {
   ArtifactContext,
   ArtifactEvent,
+  QualityContext,
+  QualityEvent,
   ViewContext,
   ViewEvent,
 } from "./sanctuary3d.types";
 import {
   INITIAL_ARTIFACT_CONTEXT,
+  INITIAL_QUALITY_CONTEXT,
   INITIAL_VIEW_CONTEXT,
   transitionArtifact,
+  transitionQuality,
   transitionView,
 } from "./sanctuary3d.machine";
 
@@ -36,6 +40,13 @@ export interface Sanctuary3DStore {
   handleContextRestored: () => void;
   handleRecoveryFailed: (reason?: string) => void;
   resetView: () => void;
+
+  // Adaptive quality lifecycle state machine
+  quality: QualityContext;
+  dispatchQuality: (event: QualityEvent) => void;
+  samplePerformance: (avgDeltaMs: number, elapsedMs: number) => void;
+  stepDownQuality: () => void;
+  resetQuality: () => void;
 }
 
 export const useSanctuary3DStore = create<Sanctuary3DStore>((set) => ({
@@ -82,6 +93,7 @@ export const useSanctuary3DStore = create<Sanctuary3DStore>((set) => ({
     set((state) => ({
       view: transitionView(state.view, { type: "EXIT_TO_2D" }),
       artifact: transitionArtifact(state.artifact, { type: "RESET" }),
+      quality: { ...INITIAL_QUALITY_CONTEXT },
     })),
   setSceneReady: () =>
     set((state) => ({
@@ -106,5 +118,49 @@ export const useSanctuary3DStore = create<Sanctuary3DStore>((set) => ({
   resetView: () =>
     set((state) => ({
       view: transitionView(state.view, { type: "RESET" }),
+      quality: { ...INITIAL_QUALITY_CONTEXT },
+    })),
+
+  quality: { ...INITIAL_QUALITY_CONTEXT },
+  dispatchQuality: (event) =>
+    set((state) => {
+      const nextQuality = transitionQuality(state.quality, event);
+      if (nextQuality.tier === "EXHAUSTED" && state.quality.tier !== "EXHAUSTED") {
+        return {
+          quality: nextQuality,
+          view: transitionView(state.view, { type: "QUALITY_EXHAUSTED" }),
+        };
+      }
+      return { quality: nextQuality };
+    }),
+  samplePerformance: (avgDeltaMs, elapsedMs) =>
+    set((state) => {
+      const nextQuality = transitionQuality(state.quality, {
+        type: "PERF_SAMPLE",
+        avgDeltaMs,
+        elapsedMs,
+      });
+      if (nextQuality.tier === "EXHAUSTED" && state.quality.tier !== "EXHAUSTED") {
+        return {
+          quality: nextQuality,
+          view: transitionView(state.view, { type: "QUALITY_EXHAUSTED" }),
+        };
+      }
+      return { quality: nextQuality };
+    }),
+  stepDownQuality: () =>
+    set((state) => {
+      const nextQuality = transitionQuality(state.quality, { type: "STEP_DOWN" });
+      if (nextQuality.tier === "EXHAUSTED" && state.quality.tier !== "EXHAUSTED") {
+        return {
+          quality: nextQuality,
+          view: transitionView(state.view, { type: "QUALITY_EXHAUSTED" }),
+        };
+      }
+      return { quality: nextQuality };
+    }),
+  resetQuality: () =>
+    set(() => ({
+      quality: { ...INITIAL_QUALITY_CONTEXT },
     })),
 }));

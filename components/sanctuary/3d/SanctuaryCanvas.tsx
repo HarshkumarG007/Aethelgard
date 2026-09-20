@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useRouter } from "next/navigation";
 import type { MemorySummary } from "@/lib/data/memories";
-import type { SpatialMemoryData } from "./state/sanctuary3d.types";
+import type { ChapterSummary } from "@/lib/data/chapters";
 import { useSanctuary3DStore } from "./state/sanctuary3d.store";
 import { SanctuaryScene } from "./SanctuaryScene";
 import { WebGLErrorFallback } from "./WebGLErrorFallback";
@@ -54,6 +54,8 @@ function getReducedMotionServerSnapshot(): boolean {
   return false;
 }
 
+import type { SpatialMemoryData } from "./state/sanctuary3d.types";
+
 export function computeSpatialPositions(
   memories: MemorySummary[]
 ): SpatialMemoryData[] {
@@ -84,16 +86,19 @@ export function computeSpatialPositions(
 
 interface SanctuaryCanvasProps {
   memories: MemorySummary[];
+  chapters?: ChapterSummary[];
   onExitTo2D: () => void;
 }
 
 export function SanctuaryCanvas({
   memories,
+  chapters = [],
   onExitTo2D,
 }: SanctuaryCanvasProps) {
   const router = useRouter();
   const {
     view,
+    quality,
     setWebGLUnavailable,
     handleContextLost,
     handleContextRestored,
@@ -139,12 +144,6 @@ export function SanctuaryCanvas({
     };
   }, [handleContextLost, handleContextRestored]);
 
-  // Transform safe domain projections to procedural coordinates
-  const spatialMemories = useMemo(
-    () => computeSpatialPositions(memories),
-    [memories]
-  );
-
   const handleNavigate = (id: string) => {
     router.push(`/memory/${id}`);
   };
@@ -174,14 +173,16 @@ export function SanctuaryCanvas({
       {/* Visual Canvas has aria-hidden=true because semantic DOM navigation provides the accessible tree */}
       <Canvas
         aria-hidden="true"
+        dpr={quality.targetDpr > 0 ? quality.targetDpr : 1}
         gl={{
           antialias: true,
           powerPreference: "default",
         }}
-        camera={{ position: [0, 5, 14], fov: 50 }}
+        camera={{ position: [0, 9, 20], fov: 50 }}
       >
         <SanctuaryScene
-          memories={spatialMemories}
+          memories={memories}
+          chapters={chapters}
           reducedMotion={reducedMotion}
           onNavigate={handleNavigate}
         />
@@ -198,7 +199,7 @@ export function SanctuaryCanvas({
             &larr; Return to 2D Archive
           </button>
           <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-sky-950/60 border border-sky-800/40 text-[11px] font-mono text-sky-400">
-            3D Sanctuary &bull; Level II
+            3D Sanctuary &bull; {quality.tier.replace("_", " ")}
           </span>
         </div>
 

@@ -27,6 +27,22 @@ export type ArtifactEvent =
   | { type: "ESCAPE" }
   | { type: "RESET" };
 
+export type QualityTier = "TIER_3" | "TIER_2" | "TIER_1" | "EXHAUSTED";
+
+export interface QualityContext {
+  tier: QualityTier;
+  dwellElapsedMs: number;
+  targetDpr: number;
+  moteCount: number;
+  shaderProfile: "full" | "static" | "standard";
+}
+
+export type QualityEvent =
+  | { type: "PERF_SAMPLE"; avgDeltaMs: number; elapsedMs: number }
+  | { type: "STEP_DOWN" }
+  | { type: "ATTEMPT_PROMOTION"; targetTier: QualityTier }
+  | { type: "RESET" };
+
 /**
  * View machine events
  */
@@ -37,6 +53,7 @@ export type ViewEvent =
   | { type: "CONTEXT_LOST" }
   | { type: "CONTEXT_RESTORED" }
   | { type: "RECOVERY_FAILED"; reason?: string }
+  | { type: "QUALITY_EXHAUSTED" }
   | { type: "EXIT_TO_2D" }
   | { type: "RESET" };
 
