@@ -19,6 +19,7 @@ import { logAuditEvent } from "@/lib/security/audit";
 
 const LoginSchema = z.object({
   passphrase: z.string().min(1),
+  account: z.enum(["viewer", "admin"]).optional(),
 });
 
 function getClientSourceKey(request: Request): string {
@@ -31,6 +32,7 @@ function getClientSourceKey(request: Request): string {
 
 export async function POST(request: Request): Promise<NextResponse> {
   // 1. Origin verification for state modification (CSRF protection)
+  // Rejects missing Origin, malformed Origin, and cross-origin attempts
   if (!validateOrigin(request)) {
     return NextResponse.json(
       {
@@ -43,34 +45,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const sourceKey = getClientSourceKey(request);
 
-  // 2. Layered rate limiting check (source IP + global failure circuit)
-  const rateLimit = await checkAuthRateLimit(sourceKey);
-  if (!rateLimit.allowed) {
-    await logAuditEvent({
-      action: "login_rate_limited",
-      outcome: "failure",
-      metadata: { sourceKey },
-    });
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "RATE_LIMITED",
-          message: "Too many authentication attempts. Please try again later.",
-        },
-      },
-      {
-        status: 429,
-        headers: {
-          "Cache-Control": "no-store",
-          "Retry-After": String(rateLimit.retryAfterSeconds || 60),
-        },
-      }
-    );
-  }
-
-  // 3. Payload validation
+  // 2. Parse payload defensively
   let body: unknown;
   try {
     body = await request.json();
@@ -99,7 +74,34 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const { passphrase } = parsed.data;
+  const { passphrase, account } = parsed.data;
+
+  // 3. Truly Layered Rate Limiting Check (Source IP + Targeted Account + Global Circuit)
+  const rateLimit = await checkAuthRateLimit(sourceKey, account);
+  if (!rateLimit.allowed) {
+    await logAuditEvent({
+      action: "login_rate_limited",
+      outcome: "failure",
+      metadata: { sourceKey, reason: rateLimit.reason },
+    });
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "RATE_LIMITED",
+          message: "Too many authentication attempts. Please try again later.",
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          "Cache-Control": "no-store",
+          "Retry-After": String(rateLimit.retryAfterSeconds || 60),
+        },
+      }
+    );
+  }
 
   // 4. Retrieve candidate users from database
   const candidateUsers = await db.select().from(users);
@@ -107,6 +109,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   let authenticatedUser: (typeof candidateUsers)[number] | null = null;
 
   for (const user of candidateUsers) {
+    // If client specifically targeted an account, verify only against that account
+    if (account && user.role !== account) {
+      continue;
+    }
+
     const isMatch = await verifyPassphrase(user.passphraseHash, passphrase);
     if (isMatch) {
       authenticatedUser = user;
@@ -117,7 +124,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 5. Authentication Failure branch (Timing-resistant generic response)
   if (!authenticatedUser) {
     await performDummyVerification();
-    await recordAuthFailure(sourceKey);
+    await recordAuthFailure(sourceKey, account);
     await logAuditEvent({
       action: "login_failure",
       outcome: "failure",
@@ -134,7 +141,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   // 6. Authentication Success branch
-  await recordAuthSuccess(sourceKey);
+  await recordAuthSuccess(sourceKey, authenticatedUser.role);
   await logAuditEvent({
     userId: authenticatedUser.id,
     action: "login_success",

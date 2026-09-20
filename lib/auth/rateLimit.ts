@@ -2,6 +2,7 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfterSeconds?: number;
+  reason?: "SOURCE_LIMIT" | "ACCOUNT_LIMIT" | "GLOBAL_LIMIT";
 }
 
 export interface RateLimitStore {
@@ -10,7 +11,7 @@ export interface RateLimitStore {
     limit: number,
     windowMs: number
   ): Promise<RateLimitResult>;
-  recordFailure(key: string, baseWindowMs: number): Promise<number>; // returns consecutive failures
+  recordFailure(key: string, baseWindowMs: number): Promise<number>;
   reset(key: string): Promise<void>;
   clearAll?(): Promise<void>;
 }
@@ -79,10 +80,10 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     };
 
     entry.consecutiveFailures += 1;
-    // Progressive backoff: if 5 or more failures, block with exponential duration
+    // Progressive backoff: starting at failure 5, scale lockout exponentially
     if (entry.consecutiveFailures >= 5) {
-      const backoffFactor = Math.min(entry.consecutiveFailures - 4, 6); // max 2^6 multiplier
-      const blockDurationMs = baseWindowMs * Math.pow(1.5, backoffFactor);
+      const backoffMultiplier = Math.min(entry.consecutiveFailures - 4, 6); // max 2^6 scaling
+      const blockDurationMs = baseWindowMs * Math.pow(1.5, backoffMultiplier);
       entry.blockedUntil = now + blockDurationMs;
     }
 
@@ -99,12 +100,18 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-// Global store instance
+// Singleton in-memory rate limit store (Upstash Redis adapter swap in production)
 const rateLimitStore: RateLimitStore = new InMemoryRateLimitStore();
 
 export const AUTH_RATE_LIMIT = {
   PER_SOURCE_MAX_ATTEMPTS: 5,
   PER_SOURCE_WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+
+  // Identity / account-level rate limit (prevents botnet rotating IPs against single account)
+  PER_ACCOUNT_MAX_ATTEMPTS: 10,
+  PER_ACCOUNT_WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+
+  // Global circuit breaker (stops massive distributed attacks)
   GLOBAL_FAILURE_THRESHOLD: 25,
   GLOBAL_WINDOW_MS: 5 * 60 * 1000, // 5 minutes
 };
@@ -112,12 +119,16 @@ export const AUTH_RATE_LIMIT = {
 const GLOBAL_AUTH_FAILURE_KEY = "global:auth:failures";
 
 /**
- * Layered rate limit check:
- * 1. Checks source IP / key quota (5 per 15 min + progressive backoff)
- * 2. Checks global failure circuit breaker to resist distributed IP-rotation attacks
+ * Truly layered authentication rate limiting:
+ * 1. Global failure circuit check (protects against distributed botnets)
+ * 2. Source IP / key quota (5 per 15 min + progressive backoff)
+ * 3. Identity / account-level quota (10 per 15 min across all IPs combined)
  */
-export async function checkAuthRateLimit(sourceKey: string): Promise<RateLimitResult> {
-  const normalizedKey = `auth:source:${sourceKey.trim() || "unknown"}`;
+export async function checkAuthRateLimit(
+  sourceKey: string,
+  accountTarget?: string
+): Promise<RateLimitResult> {
+  const normalizedSourceKey = `auth:source:${sourceKey.trim() || "unknown"}`;
 
   // 1. Global failure circuit check
   const globalCheck = await rateLimitStore.consume(
@@ -131,28 +142,84 @@ export async function checkAuthRateLimit(sourceKey: string): Promise<RateLimitRe
       allowed: false,
       remaining: 0,
       retryAfterSeconds: globalCheck.retryAfterSeconds || 60,
+      reason: "GLOBAL_LIMIT",
     };
   }
 
-  // 2. Source key check
-  return rateLimitStore.consume(
-    normalizedKey,
+  // 2. Source IP quota check
+  const sourceCheck = await rateLimitStore.consume(
+    normalizedSourceKey,
     AUTH_RATE_LIMIT.PER_SOURCE_MAX_ATTEMPTS,
     AUTH_RATE_LIMIT.PER_SOURCE_WINDOW_MS
   );
+
+  if (!sourceCheck.allowed) {
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: sourceCheck.retryAfterSeconds || 60,
+      reason: "SOURCE_LIMIT",
+    };
+  }
+
+  // 3. Identity / account quota check (if account is targeted or inferred)
+  if (accountTarget) {
+    const normalizedAccountKey = `auth:account:${accountTarget.toLowerCase().trim()}`;
+    const accountCheck = await rateLimitStore.consume(
+      normalizedAccountKey,
+      AUTH_RATE_LIMIT.PER_ACCOUNT_MAX_ATTEMPTS,
+      AUTH_RATE_LIMIT.PER_ACCOUNT_WINDOW_MS
+    );
+
+    if (!accountCheck.allowed) {
+      return {
+        allowed: false,
+        remaining: 0,
+        retryAfterSeconds: accountCheck.retryAfterSeconds || 60,
+        reason: "ACCOUNT_LIMIT",
+      };
+    }
+  }
+
+  return {
+    allowed: true,
+    remaining: sourceCheck.remaining,
+  };
 }
 
-export async function recordAuthFailure(sourceKey: string): Promise<void> {
-  const normalizedKey = `auth:source:${sourceKey.trim() || "unknown"}`;
-  await Promise.all([
-    rateLimitStore.recordFailure(normalizedKey, AUTH_RATE_LIMIT.PER_SOURCE_WINDOW_MS),
+export async function recordAuthFailure(
+  sourceKey: string,
+  accountTarget?: string
+): Promise<void> {
+  const normalizedSourceKey = `auth:source:${sourceKey.trim() || "unknown"}`;
+  const operations: Promise<unknown>[] = [
+    rateLimitStore.recordFailure(normalizedSourceKey, AUTH_RATE_LIMIT.PER_SOURCE_WINDOW_MS),
     rateLimitStore.recordFailure(GLOBAL_AUTH_FAILURE_KEY, AUTH_RATE_LIMIT.GLOBAL_WINDOW_MS),
-  ]);
+  ];
+
+  if (accountTarget) {
+    const normalizedAccountKey = `auth:account:${accountTarget.toLowerCase().trim()}`;
+    operations.push(
+      rateLimitStore.recordFailure(normalizedAccountKey, AUTH_RATE_LIMIT.PER_ACCOUNT_WINDOW_MS)
+    );
+  }
+
+  await Promise.all(operations);
 }
 
-export async function recordAuthSuccess(sourceKey: string): Promise<void> {
-  const normalizedKey = `auth:source:${sourceKey.trim() || "unknown"}`;
-  await rateLimitStore.reset(normalizedKey);
+export async function recordAuthSuccess(
+  sourceKey: string,
+  accountTarget?: string
+): Promise<void> {
+  const normalizedSourceKey = `auth:source:${sourceKey.trim() || "unknown"}`;
+  const operations: Promise<unknown>[] = [rateLimitStore.reset(normalizedSourceKey)];
+
+  if (accountTarget) {
+    const normalizedAccountKey = `auth:account:${accountTarget.toLowerCase().trim()}`;
+    operations.push(rateLimitStore.reset(normalizedAccountKey));
+  }
+
+  await Promise.all(operations);
 }
 
 export function getRateLimitStore(): RateLimitStore {

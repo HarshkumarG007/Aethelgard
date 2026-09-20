@@ -203,6 +203,26 @@ describe("Phase 1: Authentication & Session Infrastructure", () => {
       const newValidation = await validateSession(newSession.rawToken);
       expect(newValidation.valid).toBe(true);
     });
+
+    it("rotation only revokes the targeted session without destroying other legitimate sessions for the same user", async () => {
+      const session1 = await createSession(testViewerId);
+      const session2 = await createSession(testViewerId);
+
+      // Rotate session 1
+      const session3 = await rotateSession(session1.sessionId, testViewerId);
+
+      // session 1 must be revoked
+      const val1 = await validateSession(session1.rawToken);
+      expect(val1.valid).toBe(false);
+
+      // session 2 must remain valid and untouched
+      const val2 = await validateSession(session2.rawToken);
+      expect(val2.valid).toBe(true);
+
+      // session 3 is active and valid
+      const val3 = await validateSession(session3.rawToken);
+      expect(val3.valid).toBe(true);
+    });
   });
 
   // 1.8: Layered Rate Limiting
@@ -231,6 +251,22 @@ describe("Phase 1: Authentication & Session Infrastructure", () => {
       const afterReset = await checkAuthRateLimit(sourceIp);
       expect(afterReset.allowed).toBe(true);
       expect(afterReset.remaining).toBe(4);
+    });
+
+    it("enforces account/identity rate limiting even when attacker rotates IP addresses", async () => {
+      // 5 failed attempts across 5 distinct IPs targeting the same account
+      for (let i = 0; i < 5; i++) {
+        const rotatingIp = `198.51.100.${i + 1}`;
+        const check = await checkAuthRateLimit(rotatingIp, "admin");
+        expect(check.allowed).toBe(true);
+        await recordAuthFailure(rotatingIp, "admin");
+      }
+
+      // 6th attempt from a brand-new 6th IP targeting that account must be blocked
+      const newIp = "198.51.100.99";
+      const blocked = await checkAuthRateLimit(newIp, "admin");
+      expect(blocked.allowed).toBe(false);
+      expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
     });
   });
 
@@ -436,6 +472,65 @@ describe("Phase 1: Authentication & Session Infrastructure", () => {
       const json = await res.json();
       expect(json.authenticated).toBe(true);
       expect(json.user.role).toBe("admin");
+    });
+
+    it("strictly rejects state-changing requests with missing Origin header", async () => {
+      const req = new Request("http://localhost:3000/api/auth/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Missing Origin header
+        },
+        body: JSON.stringify({ passphrase: testViewerPassphrase }),
+      });
+
+      const res = await verifyHandler(req);
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error.code).toBe("FORBIDDEN");
+    });
+
+    it("strictly rejects state-changing requests with untrusted cross-origin Origin header", async () => {
+      const req = new Request("http://localhost:3000/api/auth/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://attacker.evil.com",
+        },
+        body: JSON.stringify({ passphrase: testViewerPassphrase }),
+      });
+
+      const res = await verifyHandler(req);
+      expect(res.status).toBe(403);
+    });
+
+    it("strictly rejects state-changing requests with malformed Origin header", async () => {
+      const req = new Request("http://localhost:3000/api/auth/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "malformed-not-a-valid-url",
+        },
+        body: JSON.stringify({ passphrase: testViewerPassphrase }),
+      });
+
+      const res = await verifyHandler(req);
+      expect(res.status).toBe(403);
+    });
+
+    it("rejects logout request with missing or untrusted Origin header", async () => {
+      const { rawToken } = await createSession(testViewerId);
+
+      const req = new Request("http://localhost:3000/api/auth/logout", {
+        method: "POST",
+        headers: {
+          Cookie: `__Host-session=${rawToken}`,
+          // Missing Origin
+        },
+      });
+
+      const res = await logoutHandler(req);
+      expect(res.status).toBe(403);
     });
   });
 });
