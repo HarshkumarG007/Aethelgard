@@ -13,6 +13,8 @@ import { AtmosphericMotes } from "./shaders/atmosphericMotes";
 import { AdaptiveQualityController } from "./quality/AdaptiveQualityController";
 import { CameraRig } from "./CameraRig";
 
+import { partitionSceneMemories } from "./state/sanctuary3d.partition";
+
 interface SanctuarySceneProps {
   memories: MemorySummary[];
   chapters?: ChapterSummary[];
@@ -48,57 +50,13 @@ export function SanctuaryScene({
   }, [memories]);
 
   // Partition memories into Focused, Proximate, and Distant sets
+  // Guaranteeing that OUTSIDE_RENDER_VOLUME items are completely excluded from GPU payloads
   const { focusedData, proximateData, distantData } = useMemo(() => {
-    const activeId = artifact.activeId;
-    let focused: SpatialMemoryData | null = null;
-    const proximate: SpatialMemoryData[] = [];
-    const distant: SpatialMemoryData[] = [];
-
-    // Identify active island if any
-    const activeLayoutItem = activeId
-      ? layout.memories.find((m) => m.id === activeId)
-      : null;
-    const activeChapterId = activeLayoutItem?.chapterId ?? null;
-
-    for (const item of layout.memories) {
-      const summary = memoryLookup.get(item.id);
-      const spatialData: SpatialMemoryData = {
-        id: item.id,
-        kind: item.kind,
-        title: summary?.title || "Memory",
-        description: summary?.description || null,
-        memoryDate: summary?.memoryDate || null,
-        emotion: summary?.emotion || null,
-        isFavorite: summary?.isFavorite || false,
-        position: item.worldPosition,
-      };
-
-      // Exclude from 3D if outside render volume (|X| or |Z| > 50)
-      const distSq =
-        item.worldPosition[0] * item.worldPosition[0] +
-        item.worldPosition[2] * item.worldPosition[2];
-      if (distSq > 50 * 50) {
-        continue;
-      }
-
-      if (activeId && item.id === activeId) {
-        focused = spatialData;
-      } else if (
-        activeChapterId !== null &&
-        item.chapterId === activeChapterId &&
-        proximate.length < 5
-      ) {
-        proximate.push(spatialData);
-      } else {
-        distant.push(spatialData);
-      }
-    }
-
-    return {
-      focusedData: focused,
-      proximateData: proximate,
-      distantData: distant,
-    };
+    return partitionSceneMemories(
+      layout.memories,
+      memoryLookup,
+      artifact.activeId
+    );
   }, [layout.memories, memoryLookup, artifact.activeId]);
 
   return (

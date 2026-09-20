@@ -13,6 +13,8 @@ import type {
   ViewContext,
   ViewEvent,
 } from "@/components/sanctuary/3d/state/sanctuary3d.types";
+import type { PlacedMemory } from "@/components/sanctuary/3d/islands/ArchipelagoLayout";
+import type { MemorySummary } from "@/lib/data/memories";
 
 describe("Phase 3A: Pure Sanctuary State Machines", () => {
   describe("Artifact State Machine (DORMANT <-> PROXIMATE <-> FOCUSED -> ACTIVE)", () => {
@@ -553,6 +555,185 @@ describe("Phase 3A: Pure Sanctuary State Machines", () => {
       );
       const result = computeSpatialPositions([]);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("Render-Set Partition Invariant & OUTSIDE_RENDER_VOLUME Exclusion (Gate 3B.1)", () => {
+    // Helper to generate placed memories for testing
+    function createMockPlacedMemory(
+      id: string,
+      chapterId: string | null,
+      worldPosition: [number, number, number]
+    ): PlacedMemory {
+      return {
+        id,
+        chapterId,
+        kind: "standard",
+        title: `Memory ${id}`,
+        worldPosition,
+        localOffset: [0, 0, 0],
+        islandCenter: [0, 0, 0],
+        isProximateAnchor: true,
+      };
+    }
+
+    it("proves the complete partition invariant: Every memory ∈ exactly one of {FOCUSED, PROXIMATE, DISTANT, OUTSIDE}", async () => {
+      const { partitionSceneMemories } = await import(
+        "@/components/sanctuary/3d/state/sanctuary3d.partition"
+      );
+
+      // Create a diverse set of memories:
+      // - mem-focus: at (10, 0, 10) on chapter 'ch-1' (dist ~14.14 < 50) -> will be FOCUSED
+      // - mem-prox-1..6: at (12, 0, 10) on chapter 'ch-1' -> up to 5 PROXIMATE, 6th is DISTANT
+      // - mem-dist-1..5: at (20, 0, 20) on chapter 'ch-2' -> DISTANT
+      // - mem-out-1: at (55, 0, 0) (dist 55 > 50) -> OUTSIDE_RENDER_VOLUME
+      // - mem-out-2: at (0, 0, -60) (dist 60 > 50) -> OUTSIDE_RENDER_VOLUME
+      // - mem-out-active: at (70, 0, 0) on chapter 'ch-out' (even if active, must be OUTSIDE)
+      const mockMemories: PlacedMemory[] = [
+        createMockPlacedMemory("mem-focus", "ch-1", [10, 0, 10]),
+        createMockPlacedMemory("mem-prox-1", "ch-1", [11, 0, 10]),
+        createMockPlacedMemory("mem-prox-2", "ch-1", [12, 0, 10]),
+        createMockPlacedMemory("mem-prox-3", "ch-1", [13, 0, 10]),
+        createMockPlacedMemory("mem-prox-4", "ch-1", [14, 0, 10]),
+        createMockPlacedMemory("mem-prox-5", "ch-1", [15, 0, 10]),
+        createMockPlacedMemory("mem-prox-6", "ch-1", [16, 0, 10]), // Exceeds MAX_PROXIMATE_COUNT (5) -> DISTANT
+        createMockPlacedMemory("mem-dist-1", "ch-2", [20, 0, 20]),
+        createMockPlacedMemory("mem-dist-2", "ch-2", [22, 0, 20]),
+        createMockPlacedMemory("mem-out-1", "ch-3", [55, 0, 0]),
+        createMockPlacedMemory("mem-out-2", "ch-3", [0, 0, -60]),
+        createMockPlacedMemory("mem-out-3", "ch-4", [40, 0, 40]), // 40^2 + 40^2 = 3200 > 2500 -> OUTSIDE
+      ];
+
+      const memoryLookup = new Map<string, MemorySummary>();
+      for (const m of mockMemories) {
+        memoryLookup.set(m.id, {
+          id: m.id,
+          kind: "standard",
+          title: m.title,
+          description: null,
+          bodyText: "",
+          memoryDate: "2024-01-01",
+          location: null,
+          emotion: null,
+          threadKey: null,
+          sortOrder: 0,
+          isFavorite: false,
+          isDraft: false,
+          chapter: m.chapterId ? { id: m.chapterId, title: m.chapterId } : null,
+          assets: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+
+      const activeId = "mem-focus";
+      const result = partitionSceneMemories(mockMemories, memoryLookup, activeId);
+
+      // Extract ID sets
+      const focusedIds = new Set(result.focusedData ? [result.focusedData.id] : []);
+      const proximateIds = new Set(result.proximateData.map((m) => m.id));
+      const distantIds = new Set(result.distantData.map((m) => m.id));
+      const outsideIds = new Set(result.outsideVolumeData.map((m) => m.id));
+      const allIds = new Set(mockMemories.map((m) => m.id));
+
+      // 1. Invariant: Completeness
+      // |FOCUSED| + |PROXIMATE| + |DISTANT| + |OUTSIDE| === |ALL|
+      expect(
+        focusedIds.size + proximateIds.size + distantIds.size + outsideIds.size
+      ).toBe(allIds.size);
+      expect(result.partitionMap.size).toBe(allIds.size);
+
+      // 2. Invariant: Mutual Exclusion
+      // FOCUSED ∩ PROXIMATE = ∅
+      for (const id of focusedIds) {
+        expect(proximateIds.has(id)).toBe(false);
+      }
+
+      // FOCUSED ∩ DISTANT = ∅
+      for (const id of focusedIds) {
+        expect(distantIds.has(id)).toBe(false);
+      }
+
+      // PROXIMATE ∩ DISTANT = ∅
+      for (const id of proximateIds) {
+        expect(distantIds.has(id)).toBe(false);
+      }
+
+      // OUTSIDE ∩ (FOCUSED ∪ PROXIMATE ∪ DISTANT) = ∅
+      const renderedIds = new Set([...focusedIds, ...proximateIds, ...distantIds]);
+      for (const id of outsideIds) {
+        expect(renderedIds.has(id)).toBe(false);
+      }
+
+      // 3. Invariant: Union covers ALL
+      // FOCUSED ∪ PROXIMATE ∪ DISTANT ∪ OUTSIDE = ALL
+      const unionAll = new Set([...renderedIds, ...outsideIds]);
+      expect(unionAll.size).toBe(allIds.size);
+      for (const id of allIds) {
+        expect(unionAll.has(id)).toBe(true);
+      }
+
+      // 4. Exact Set Verification:
+      expect(focusedIds).toEqual(new Set(["mem-focus"]));
+      expect(proximateIds.size).toBe(5); // Capped at MAX_PROXIMATE_COUNT
+      expect(distantIds.has("mem-prox-6")).toBe(true); // 6th proximate overflowed to distant
+      expect(distantIds.has("mem-dist-1")).toBe(true);
+      expect(distantIds.has("mem-dist-2")).toBe(true);
+      expect(outsideIds).toEqual(new Set(["mem-out-1", "mem-out-2", "mem-out-3"]));
+    });
+
+    it("guarantees OUTSIDE_RENDER_VOLUME exclusion from every GPU-facing payload", async () => {
+      const { partitionSceneMemories } = await import(
+        "@/components/sanctuary/3d/state/sanctuary3d.partition"
+      );
+
+      // Edge case: An activeId is set to an item that is OUTSIDE the render volume
+      const mockMemories: PlacedMemory[] = [
+        createMockPlacedMemory("mem-far-active", "ch-1", [100, 0, 100]), // Outside!
+        createMockPlacedMemory("mem-near-1", "ch-1", [10, 0, 10]),
+        createMockPlacedMemory("mem-near-2", "ch-2", [15, 0, 15]),
+      ];
+
+      const memoryLookup = new Map<string, MemorySummary>();
+      for (const m of mockMemories) {
+        memoryLookup.set(m.id, {
+          id: m.id,
+          kind: "standard",
+          title: m.title,
+          description: null,
+          bodyText: "",
+          memoryDate: "2024-01-01",
+          location: null,
+          emotion: null,
+          threadKey: null,
+          sortOrder: 0,
+          isFavorite: false,
+          isDraft: false,
+          chapter: null,
+          assets: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+
+      const result = partitionSceneMemories(mockMemories, memoryLookup, "mem-far-active");
+
+      // Because 'mem-far-active' is outside volume (distSq > 50^2), it MUST be excluded from focusedData
+      expect(result.focusedData).toBeNull();
+      expect(result.outsideVolumeData.map((m) => m.id)).toContain("mem-far-active");
+
+      // Verify no item in GPU-facing payloads exceeds render volume distance
+      const gpuFacingPayloads = [
+        ...(result.focusedData ? [result.focusedData] : []),
+        ...result.proximateData,
+        ...result.distantData,
+      ];
+
+      for (const item of gpuFacingPayloads) {
+        const distSq = item.position[0] * item.position[0] + item.position[2] * item.position[2];
+        expect(distSq).toBeLessThanOrEqual(50 * 50);
+        expect(item.id).not.toBe("mem-far-active");
+      }
     });
   });
 });

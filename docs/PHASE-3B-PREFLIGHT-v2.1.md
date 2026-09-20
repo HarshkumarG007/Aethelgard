@@ -199,6 +199,10 @@ MemoryAuraShaderMaterial          MeshStandardMaterial
    - The material factory exposes `createArtifactMaterial(mode: "shader" | "standard")`.
    - The standard fallback path is tested directly and independently in unit tests without requiring GPU hardware failure.
 
+4. **Shader Fallback Contract (Amendment):**
+   - **Shader fallback means preflight/capability fallback. It does not guarantee interception of GPU-driver-level shader compilation/link failures after renderer program acquisition. Such runtime WebGL failures are handled by the broader 3D fallback/recovery mechanism.**
+   - Do not intercept Three.js internal WebGLProgram compilation.
+
 ---
 
 ### Subsystem 4: Monotonic Adaptive Quality Controller (AQC)
