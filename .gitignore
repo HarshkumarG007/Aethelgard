@@ -21,6 +21,7 @@
 
 # PostgreSQL data volume if mapped locally
 postgres_data/
+backups/
 
 # Debug logs
 npm-debug.log*

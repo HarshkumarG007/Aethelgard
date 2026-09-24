@@ -113,7 +113,7 @@ export function createAuthErrorResponse(error: unknown): NextResponse {
       {
         status: error.statusCode,
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": "no-store, private",
         },
       }
     );
@@ -130,7 +130,7 @@ export function createAuthErrorResponse(error: unknown): NextResponse {
     {
       status: 500,
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": "no-store, private",
       },
     }
   );
