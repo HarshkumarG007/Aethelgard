@@ -83,6 +83,7 @@ export default async function MemoryPage({ params }: MemoryPageProps) {
       memory={memory}
       prevId={prevId}
       nextId={nextId}
+      isAdmin={user.role === "admin"}
     />
   );
 }

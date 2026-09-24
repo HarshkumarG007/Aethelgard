@@ -3,11 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ChapterSummary } from "@/lib/data/chapters";
+import type { MemorySummary } from "@/lib/data/memories";
 
 interface MemoryComposerModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultKind?: "standard" | "letter" | "milestone" | "future";
+  initialData?: MemorySummary | null;
+  onSuccess?: () => void;
 }
 
 const EMOTIONS = [
@@ -20,22 +23,38 @@ const EMOTIONS = [
   { value: "gratitude", label: "Gratitude", color: "border-sky-500/40 text-sky-300 bg-sky-950/20" },
 ] as const;
 
-export function MemoryComposerModal({
-  isOpen,
+export function MemoryComposerModal(props: MemoryComposerModalProps) {
+  if (!props.isOpen) return null;
+  return (
+    <MemoryComposerDialog
+      key={props.initialData ? `edit-${props.initialData.id}` : "create"}
+      {...props}
+    />
+  );
+}
+
+function MemoryComposerDialog({
   onClose,
   defaultKind = "standard",
-}: MemoryComposerModalProps) {
+  initialData,
+  onSuccess,
+}: Omit<MemoryComposerModalProps, "isOpen">) {
   const router = useRouter();
+  const isEditMode = !!initialData;
 
-  // Form states
-  const [kind, setKind] = useState<"standard" | "letter" | "milestone" | "future">(defaultKind);
-  const [title, setTitle] = useState("");
-  const [memoryDate, setMemoryDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [chapterId, setChapterId] = useState("");
-  const [emotion, setEmotion] = useState<string>("wonder");
-  const [locationName, setLocationName] = useState("");
-  const [bodyText, setBodyText] = useState("");
-  const [isFavorite, setIsFavorite] = useState(false);
+  // Form states initialized directly from initialData or defaults
+  const [kind, setKind] = useState<"standard" | "letter" | "milestone" | "future">(
+    initialData?.kind || defaultKind
+  );
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [memoryDate, setMemoryDate] = useState(
+    initialData?.memoryDate || new Date().toISOString().split("T")[0]
+  );
+  const [chapterId, setChapterId] = useState(initialData?.chapter?.id || "");
+  const [emotion, setEmotion] = useState<string>(initialData?.emotion || "wonder");
+  const [locationName, setLocationName] = useState(initialData?.location?.name || "");
+  const [bodyText, setBodyText] = useState(initialData?.bodyText || "");
+  const [isFavorite, setIsFavorite] = useState(initialData?.isFavorite || false);
 
   // Chapters list
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
@@ -51,10 +70,8 @@ export function MemoryComposerModal({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Fetch chapters when modal opens
+  // Fetch chapters when mounted
   useEffect(() => {
-    if (!isOpen) return;
-
     let isMounted = true;
 
     const loadChapters = async () => {
@@ -63,7 +80,7 @@ export function MemoryComposerModal({
         const data = await res.json();
         if (isMounted && data.success && data.data?.chapters) {
           setChapters(data.data.chapters);
-          if (data.data.chapters.length > 0 && !chapterId) {
+          if (data.data.chapters.length > 0 && !chapterId && !initialData) {
             setChapterId(data.data.chapters[0].id);
           }
         }
@@ -79,18 +96,18 @@ export function MemoryComposerModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, chapterId]);
+  }, [chapterId, initialData]);
 
   // Handle Escape key to dismiss
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && isOpen && !isSubmitting) {
+      if (e.key === "Escape" && !isSubmitting) {
         onClose();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isSubmitting, onClose]);
 
   // File selection
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -129,10 +146,9 @@ export function MemoryComposerModal({
 
     setIsSubmitting(true);
     setErrorMessage(null);
-    setStatusMessage("Inscribing memory into sanctuary chronicle...");
+    setStatusMessage(isEditMode ? "Updating artifact in sanctuary chronicle..." : "Inscribing memory into sanctuary chronicle...");
 
     try {
-      // 1. Create Memory record
       const memoryPayload = {
         kind,
         title: title.trim(),
@@ -144,29 +160,47 @@ export function MemoryComposerModal({
         isFavorite,
       };
 
-      const createRes = await fetch("/api/admin/memories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(memoryPayload),
-      });
+      let targetMemoryId: string;
 
-      if (!createRes.ok) {
-        const errData = await createRes.json();
-        throw new Error(errData.error?.message || "Failed to create memory");
+      if (isEditMode) {
+        // 1. Update existing Memory
+        const updateRes = await fetch(`/api/admin/memories/${initialData.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(memoryPayload),
+        });
+
+        if (!updateRes.ok) {
+          const errData = await updateRes.json();
+          throw new Error(errData.error?.message || "Failed to update memory");
+        }
+        targetMemoryId = initialData.id;
+      } else {
+        // 1. Create new Memory
+        const createRes = await fetch("/api/admin/memories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(memoryPayload),
+        });
+
+        if (!createRes.ok) {
+          const errData = await createRes.json();
+          throw new Error(errData.error?.message || "Failed to create memory");
+        }
+
+        const { data: createdData } = await createRes.json();
+        targetMemoryId = createdData.memoryId;
       }
 
-      const { data: createdData } = await createRes.json();
-      const newMemoryId = createdData.memoryId;
-
       // 2. Upload file if selected
-      if (selectedFile && newMemoryId) {
+      if (selectedFile && targetMemoryId) {
         setStatusMessage(`Authorizing secure upload for ${selectedFile.name}...`);
 
         const uploadAuthRes = await fetch("/api/admin/media/upload-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            memoryId: newMemoryId,
+            memoryId: targetMemoryId,
             filename: selectedFile.name,
             contentType: selectedFile.type,
             sizeBytes: selectedFile.size,
@@ -204,27 +238,20 @@ export function MemoryComposerModal({
         }
       }
 
-      setStatusMessage("Artifact sealed successfully!");
+      setStatusMessage(isEditMode ? "Artifact updated successfully!" : "Artifact sealed successfully!");
       setTimeout(() => {
-        // Reset and close
-        setTitle("");
-        setBodyText("");
-        setLocationName("");
-        setSelectedFile(null);
-        setFilePreviewUrl(null);
-        setStatusMessage(null);
         setIsSubmitting(false);
+        setStatusMessage(null);
         onClose();
+        if (onSuccess) onSuccess();
         router.refresh();
-      }, 700);
+      }, 600);
     } catch (err: unknown) {
       setErrorMessage((err as Error).message || "An unexpected error occurred");
       setIsSubmitting(false);
       setStatusMessage(null);
     }
   }
-
-  if (!isOpen) return null;
 
   return (
     <div
@@ -241,10 +268,12 @@ export function MemoryComposerModal({
               id="composer-title"
               className="font-serif text-2xl font-semibold tracking-wide text-primary-light"
             >
-              Inscribe Sanctuary Artifact
+              {isEditMode ? "Refine Sanctuary Artifact" : "Inscribe Sanctuary Artifact"}
             </h2>
             <p className="text-xs text-gray-400 mt-1">
-              Add a new memory, letter, or milestone to the eternal archive.
+              {isEditMode
+                ? "Modify the narrative, details, or chapter association of this preserved memory."
+                : "Add a new memory, letter, or milestone to the eternal archive."}
             </p>
           </div>
           <button
@@ -414,7 +443,7 @@ export function MemoryComposerModal({
           {/* Drag & Drop File Upload Area */}
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1">
-              Attach Photograph or Artifact (Optional)
+              {isEditMode ? "Attach Additional Media Artifact (Optional)" : "Attach Photograph or Artifact (Optional)"}
             </label>
             <div
               onDragOver={(e) => e.preventDefault()}
@@ -490,8 +519,10 @@ export function MemoryComposerModal({
               {isSubmitting ? (
                 <>
                   <span className="inline-block w-3 h-3 rounded-full border-2 border-background-void border-t-transparent animate-spin" />
-                  Inscribing...
+                  {isEditMode ? "Updating..." : "Inscribing..."}
                 </>
+              ) : isEditMode ? (
+                "Update Artifact"
               ) : (
                 "Seal Artifact"
               )}

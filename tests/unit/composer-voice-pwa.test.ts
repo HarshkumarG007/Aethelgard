@@ -72,4 +72,36 @@ describe("Phase 7: Composer Modal, Voice Recorder & PWA Verification", () => {
       expect(content).toContain("import { VoiceRecorder }");
     });
   });
+
+  describe("Sub-Gate 7.4: In-Browser Edit & Soft-Delete Chronicle Controls", () => {
+    it("verifies MemoryComposerModal implements edit mode and calls PATCH /api/admin/memories/[id]", async () => {
+      const composerPath = path.resolve(process.cwd(), "components/admin/MemoryComposerModal.tsx");
+      const content = await fs.readFile(composerPath, "utf8");
+      expect(content).toContain("initialData?: MemorySummary | null");
+      expect(content).toContain("isEditMode");
+      expect(content).toContain("PATCH");
+      expect(content).toContain("/api/admin/memories/${initialData.id}");
+      expect(content).toContain("Update Artifact");
+    });
+
+    it("verifies MemoryDeepView exposes Refine and Remove buttons strictly when isAdmin is true", async () => {
+      const deepViewPath = path.resolve(process.cwd(), "components/sanctuary/MemoryDeepView.tsx");
+      const content = await fs.readFile(deepViewPath, "utf8");
+      expect(content).toContain("isAdmin?: boolean");
+      expect(content).toContain("isAdmin &&");
+      expect(content).toContain("Refine");
+      expect(content).toContain("Remove");
+      expect(content).toContain("setIsEditModalOpen(true)");
+      expect(content).toContain("setShowDeleteConfirm(true)");
+    });
+
+    it("verifies MemoryDeepView wires soft-delete flow with confirmation and DELETE request", async () => {
+      const deepViewPath = path.resolve(process.cwd(), "components/sanctuary/MemoryDeepView.tsx");
+      const content = await fs.readFile(deepViewPath, "utf8");
+      expect(content).toContain("DELETE");
+      expect(content).toContain("/api/admin/memories/${memory.id}");
+      expect(content).toContain('aria-labelledby="delete-dialog-title"');
+      expect(content).toContain("Confirm Removal");
+    });
+  });
 });
