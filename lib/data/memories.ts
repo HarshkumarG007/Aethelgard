@@ -385,3 +385,175 @@ export async function getAdjacentMemoryIds(
     nextId: nextRows.length > 0 ? nextRows[0].id : null,
   };
 }
+
+export interface SanctuaryExport {
+  schemaVersion: number;
+  exportedAt: string;
+  chapters: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  memories: MemorySummary[];
+}
+
+/**
+ * Creates a new memory artifact.
+ */
+export async function createMemory(
+  principal: AuthenticatedUser,
+  input: import("@/lib/validation/memories").CreateMemoryInput
+): Promise<MemorySummary> {
+  if (principal.role !== "admin") {
+    throw new AuthError("FORBIDDEN", 403, "Admin authorization required to create memories");
+  }
+
+  // If chapterId provided, verify it exists
+  if (input.chapterId) {
+    const chapterExists = await db
+      .select({ id: chapters.id })
+      .from(chapters)
+      .where(eq(chapters.id, input.chapterId))
+      .limit(1);
+
+    if (chapterExists.length === 0) {
+      throw new AuthError("NOT_FOUND", 404, "Specified chapter not found");
+    }
+  }
+
+  const [created] = await db
+    .insert(memories)
+    .values({
+      userId: principal.id,
+      chapterId: input.chapterId || null,
+      kind: input.kind,
+      title: input.title,
+      description: input.description || null,
+      bodyText: input.bodyText || null,
+      memoryDate: input.memoryDate || null,
+      location: input.location || null,
+      emotion: input.emotion || null,
+      threadKey: input.threadKey || null,
+      sortOrder: input.sortOrder ?? 0,
+      isFavorite: input.isFavorite ?? false,
+      isDraft: input.isDraft ?? false,
+    })
+    .returning();
+
+  return await getMemoryById(principal, created.id);
+}
+
+/**
+ * Updates mutable fields of an existing memory artifact.
+ */
+export async function updateMemory(
+  principal: AuthenticatedUser,
+  memoryId: string,
+  input: import("@/lib/validation/memories").UpdateMemoryInput
+): Promise<MemorySummary> {
+  // First ensure the memory exists and verify ownership/admin
+  const existing = await getMemoryById(principal, memoryId);
+
+  // If chapterId is being updated, verify it exists
+  if (input.chapterId) {
+    const chapterExists = await db
+      .select({ id: chapters.id })
+      .from(chapters)
+      .where(eq(chapters.id, input.chapterId))
+      .limit(1);
+
+    if (chapterExists.length === 0) {
+      throw new AuthError("NOT_FOUND", 404, "Specified chapter not found");
+    }
+  }
+
+  const updateFields: Partial<typeof memories.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.kind !== undefined) updateFields.kind = input.kind;
+  if (input.title !== undefined) updateFields.title = input.title;
+  if (input.description !== undefined) updateFields.description = input.description;
+  if (input.bodyText !== undefined) updateFields.bodyText = input.bodyText;
+  if (input.memoryDate !== undefined) updateFields.memoryDate = input.memoryDate;
+  if (input.location !== undefined) updateFields.location = input.location;
+  if (input.emotion !== undefined) updateFields.emotion = input.emotion;
+  if (input.chapterId !== undefined) updateFields.chapterId = input.chapterId;
+  if (input.isFavorite !== undefined) updateFields.isFavorite = input.isFavorite;
+  if (input.isDraft !== undefined) updateFields.isDraft = input.isDraft;
+  if (input.sortOrder !== undefined) updateFields.sortOrder = input.sortOrder;
+  if (input.threadKey !== undefined) updateFields.threadKey = input.threadKey;
+
+  await db
+    .update(memories)
+    .set(updateFields)
+    .where(and(eq(memories.id, memoryId), isNull(memories.deletedAt)));
+
+  return await getMemoryById(principal, memoryId);
+}
+
+/**
+ * Soft deletes a memory and all its associated assets.
+ */
+export async function deleteMemory(
+  principal: AuthenticatedUser,
+  memoryId: string
+): Promise<void> {
+  // Verify existence & ownership
+  await getMemoryById(principal, memoryId);
+
+  const now = new Date();
+
+  // Multi-step soft-deletion in transaction
+  await db.transaction(async (tx) => {
+    // 1. Soft delete memory
+    await tx
+      .update(memories)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(memories.id, memoryId));
+
+    // 2. Cascade soft-delete memory assets
+    await tx
+      .update(memoryAssets)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(memoryAssets.memoryId, memoryId));
+  });
+}
+
+/**
+ * Exports complete sanctuary metadata with schema versioning.
+ * Strictly excludes secrets, passphrases, and raw storage keys.
+ */
+export async function exportSanctuaryData(
+  principal: AuthenticatedUser
+): Promise<SanctuaryExport> {
+  if (principal.role !== "admin") {
+    throw new AuthError("FORBIDDEN", 403, "Admin authorization required for data export");
+  }
+
+  const [allChapters, memoriesResult] = await Promise.all([
+    db
+      .select({
+        id: chapters.id,
+        title: chapters.title,
+        description: chapters.description,
+        sortOrder: chapters.sortOrder,
+        createdAt: chapters.createdAt,
+        updatedAt: chapters.updatedAt,
+      })
+      .from(chapters)
+      .orderBy(asc(chapters.sortOrder)),
+    getMemories(principal, { limit: 100 }),
+  ]);
+
+  return {
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    chapters: allChapters,
+    memories: memoriesResult.memories,
+  };
+}
+
