@@ -95,7 +95,8 @@ All quality gates, security invariants, and accessibility contracts are validate
 │   └── auth/                 # Passphrase authentication threshold
 ├── components/
 │   ├── 3d/                   # Three.js / R3F Canvas, Archipelago, Shaders, Quality Machine
-│   ├── media/                # Accessible MediaViewer, Lightbox, Audio/Video Players
+│   ├── admin/                # In-Browser Memory Composer & Upload Modal
+│   ├── media/                # Accessible MediaViewer, VoiceRecorder, Audio/Video Players
 │   └── sanctuary/            # 2D Sanctuary UI (Chronicle, LettersChamber, VaultArchive)
 ├── docs/                     # Specifications, Contracts, ADRs, and Release Evidence
 │   ├── 01_AETHELGARD_MASTER_BUILD_SPEC.md
