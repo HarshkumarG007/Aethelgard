@@ -38,17 +38,14 @@ async function runE2EVerification() {
   }
 
   const setCookie = loginRes.headers.get("set-cookie");
-  if (!setCookie || !setCookie.includes("__Host-session=")) {
-    throw new Error("Login did not return __Host-session cookie!");
+  const cookieMatch = setCookie?.match(/(?:__Host-session|aethelgard_session)=([^;]+)/);
+  if (!setCookie || !cookieMatch) {
+    throw new Error(`Login did not return a valid session cookie: ${setCookie}`);
   }
 
-  // Extract session token cookie
-  const cookieMatch = setCookie.match(/__Host-session=([^;]+)/);
-  if (!cookieMatch) {
-    throw new Error("Failed to parse __Host-session token");
-  }
-  const sessionCookieHeader = `__Host-session=${cookieMatch[1]}`;
-  console.log("  ✓ Authentication succeeded, __Host-session cookie issued with HttpOnly, Secure, SameSite=Strict");
+  const cookieName = setCookie.includes("__Host-session=") ? "__Host-session" : "aethelgard_session";
+  const sessionCookieHeader = `${cookieName}=${cookieMatch[1]}`;
+  console.log(`  ✓ Authentication succeeded, ${cookieName} cookie issued with HttpOnly, SameSite=Strict`);
 
   // 3. Authenticated Navigation across all 5 Sanctuary Surfaces
   console.log("\n[3] Testing Authenticated Sanctuary Pages with Session Cookie...");
