@@ -22,11 +22,21 @@ export function VoiceRecorder({ onSealed, className = "" }: VoiceRecorderProps) 
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Clean up audio URL on unmount
+  // Audio Context & Analyser for real-time waveform visualization
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Clean up audio URL and contexts on unmount
   useEffect(() => {
     return () => {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close().catch(() => {});
+      }
     };
   }, [audioUrl]);
 
@@ -50,6 +60,25 @@ export function VoiceRecorder({ onSealed, className = "" }: VoiceRecorderProps) 
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
 
+      // Initialize Web Audio API Analyser for real-time waveform visualization
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        try {
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.8;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+        } catch {
+          // Fallback gracefully if AudioContext initialization is restricted
+        }
+      }
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -69,6 +98,11 @@ export function VoiceRecorder({ onSealed, className = "" }: VoiceRecorderProps) 
 
         // Stop media tracks
         stream.getTracks().forEach((track) => track.stop());
+
+        // Close recording audio context
+        if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+          audioContextRef.current.close().catch(() => {});
+        }
       };
 
       mediaRecorder.start(250);
@@ -86,6 +120,10 @@ export function VoiceRecorder({ onSealed, className = "" }: VoiceRecorderProps) 
 
   function stopRecording() {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
     }
@@ -179,6 +217,75 @@ export function VoiceRecorder({ onSealed, className = "" }: VoiceRecorderProps) 
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }
 
+  // Real-time canvas waveform rendering loop
+  useEffect(() => {
+    if (recordingState !== "recording") {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const analyser = analyserRef.current;
+    if (!analyser) return;
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const draw = () => {
+      animationFrameRef.current = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      const barCount = 14;
+      const barWidth = width / barCount - 1.5;
+      let x = 1;
+
+      for (let i = 0; i < barCount; i++) {
+        const val = dataArray[i] || 0;
+        const normalized = Math.min(1, Math.max(0.12, val / 220));
+        const barHeight = normalized * (height - 2);
+
+        const gradient = ctx.createLinearGradient(0, height, 0, 0);
+        gradient.addColorStop(0, "rgba(245, 158, 11, 0.4)");
+        gradient.addColorStop(1, "rgba(251, 191, 36, 0.95)");
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+        x += barWidth + 1.5;
+      }
+
+      if (prefersReducedMotion) {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      }
+    };
+
+    draw();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [recordingState]);
+
   return (
     <div className={`p-4 rounded-xl border border-amber-900/40 bg-background-elevated/40 backdrop-blur-sm space-y-3 ${className}`}>
       {errorMessage && (
@@ -219,13 +326,14 @@ export function VoiceRecorder({ onSealed, className = "" }: VoiceRecorderProps) 
             <span className="font-mono text-xs font-semibold text-rose-300">
               Recording {formatDuration(duration)}
             </span>
-            {/* Animated sound wave bars */}
-            <div className="flex items-center gap-0.5 h-4">
-              <span className="w-0.5 h-2 bg-amber-400 animate-pulse" />
-              <span className="w-0.5 h-4 bg-amber-300 animate-pulse delay-75" />
-              <span className="w-0.5 h-3 bg-amber-400 animate-pulse delay-150" />
-              <span className="w-0.5 h-1 bg-amber-300 animate-pulse" />
-            </div>
+            {/* Live Audio Spectrum Waveform Canvas */}
+            <canvas
+              ref={canvasRef}
+              width={100}
+              height={24}
+              className="w-24 h-6 rounded bg-background-void/60 border border-amber-900/30 px-1"
+              aria-label="Real-time voice waveform visualization"
+            />
           </div>
           <button
             type="button"

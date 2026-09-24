@@ -104,4 +104,48 @@ describe("Phase 7: Composer Modal, Voice Recorder & PWA Verification", () => {
       expect(content).toContain("Confirm Removal");
     });
   });
+
+  describe("Sub-Gate 7.5: Ambient Soundscape & Visual Waveforms", () => {
+    it("verifies AmbientEngine provides offline procedural soundscape methods", async () => {
+      const enginePath = path.resolve(process.cwd(), "lib/audio/ambientEngine.ts");
+      const content = await fs.readFile(enginePath, "utf8");
+      expect(content).toContain("class AmbientSoundscapeEngine");
+      expect(content).toContain("public async start");
+      expect(content).toContain("public async stop");
+      expect(content).toContain("public setVolume");
+      expect(content).toContain("public getAnalyser");
+      expect(content).toContain("export const ambientEngine");
+    });
+
+    it("verifies AmbientSoundscape component renders controls and real-time spectrum canvas", async () => {
+      const soundscapePath = path.resolve(process.cwd(), "components/media/AmbientSoundscape.tsx");
+      const content = await fs.readFile(soundscapePath, "utf8");
+      expect(content).toContain("ambientEngine");
+      expect(content).toContain("<canvas");
+      expect(content).toContain("toggleSoundscape");
+      expect(content).toContain("handleVolumeChange");
+      expect(content).toContain('role="region"');
+      expect(content).toContain("Sanctuary Atmosphere");
+    });
+
+    it("verifies SanctuaryHeader mounts AmbientSoundscape in utility bar", async () => {
+      const headerPath = path.resolve(process.cwd(), "components/sanctuary/SanctuaryHeader.tsx");
+      const content = await fs.readFile(headerPath, "utf8");
+      expect(content).toContain("import { AmbientSoundscape }");
+      expect(content).toContain("<AmbientSoundscape />");
+    });
+
+    it("verifies VoiceRecorder and MediaViewer render reactive waveforms", async () => {
+      const voicePath = path.resolve(process.cwd(), "components/media/VoiceRecorder.tsx");
+      const voiceContent = await fs.readFile(voicePath, "utf8");
+      expect(voiceContent).toContain("<canvas");
+      expect(voiceContent).toContain("analyserRef");
+      expect(voiceContent).toContain("createMediaStreamSource");
+
+      const viewerPath = path.resolve(process.cwd(), "components/media/MediaViewer.tsx");
+      const viewerContent = await fs.readFile(viewerPath, "utf8");
+      expect(viewerContent).toContain("Audio waveform visualizer");
+      expect(viewerContent).toContain("wavePattern");
+    });
+  });
 });

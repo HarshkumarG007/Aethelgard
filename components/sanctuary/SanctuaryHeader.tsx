@@ -7,6 +7,7 @@ import type { AuthenticatedUser } from "@/lib/auth/types";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { KeyboardManager } from "./KeyboardManager";
 import { MemoryComposerModal } from "@/components/admin/MemoryComposerModal";
+import { AmbientSoundscape } from "@/components/media/AmbientSoundscape";
 
 interface SanctuaryHeaderProps {
   user: AuthenticatedUser;
@@ -140,6 +141,9 @@ export function SanctuaryHeader({ user }: SanctuaryHeaderProps) {
                 <span>Inscribe</span>
               </button>
             )}
+
+            {/* Atmospheric Soundscape Controls */}
+            <AmbientSoundscape />
 
             {/* Shortcuts Help Button */}
             <button

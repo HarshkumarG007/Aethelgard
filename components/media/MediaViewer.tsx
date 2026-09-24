@@ -189,6 +189,32 @@ export function MediaViewer({
                 className="hidden"
               />
 
+              {/* Ethereal Audio Waveform Track */}
+              <div
+                className="h-12 w-full rounded-lg bg-background-void/60 border border-background-border/70 px-3 py-2 flex items-center justify-between gap-1 overflow-hidden"
+                aria-label="Audio waveform visualizer"
+              >
+                {Array.from({ length: 32 }).map((_, i) => {
+                  const progress = duration > 0 ? currentTime / duration : 0;
+                  const isPassed = i / 32 <= progress;
+                  // Organic waveform height pattern
+                  const wavePattern = [25, 45, 70, 90, 60, 40, 80, 100, 75, 50, 85, 95, 65, 35, 55, 80, 90, 65, 45, 75, 95, 60, 40, 85, 100, 70, 50, 65, 85, 55, 35, 20];
+                  const barPercent = wavePattern[i % wavePattern.length];
+
+                  return (
+                    <span
+                      key={i}
+                      style={{ height: `${barPercent}%` }}
+                      className={`w-1.5 rounded-full transition-all duration-200 ${
+                        isPassed
+                          ? "bg-primary-light shadow-sm shadow-primary/50"
+                          : "bg-gray-700/50"
+                      } ${isPlaying && isPassed ? "animate-pulse" : ""}`}
+                    />
+                  );
+                })}
+              </div>
+
               <div className="flex items-center gap-4">
                 <button
                   type="button"
