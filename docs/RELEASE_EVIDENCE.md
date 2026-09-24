@@ -1,8 +1,9 @@
 # AETHELGARD — Release Evidence & Acceptance Dossier v1.0
 
 **Release Phase:** Complete Sanctuary System & Post-Release Enhancements (Phases 0 through 7)  
-**Release Checkpoint Commit:** `ad7dafd`  
-**Deployment Timestamp:** 2026-09-24T10:16:00Z  
+**Release Tag:** `v1.0.0`  
+**Release Checkpoint Commit:** `e5a22ef`  
+**Deployment Timestamp:** 2026-09-24T12:08:00Z  
 **Target Environment:** Production / Active-LTS  
 
 ---
@@ -25,7 +26,9 @@ Project Documentation            → 22cce87
 Phase 7.1 (Composer, Voice, PWA) → 22f94fd
 Phase 7.2 (Edit / Delete UI)     → 7387a29
 Phase 7.3 (Ambient & Waveforms)  → 0648930
-Phase 7.4 (Turnkey Cloud Deploy) → ad7dafd  ← CURRENT ACCEPTED RELEASE
+Phase 7.4 (Turnkey Cloud Deploy) → ad7dafd
+Phase 7.5 (README & Visual Dossier) → 15d5d1c
+Phase 7.6 (Release Verification)    → e5a22ef  ← RELEASE v1.0.0 (OFFICIAL)
 ```
 
 - **Dependency Lockfile State:** Pinned dependencies cleanly resolved under npm strict tree (`package-lock.json`).
