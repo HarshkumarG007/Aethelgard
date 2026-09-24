@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedUser } from "@/lib/auth/types";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import { KeyboardManager } from "./KeyboardManager";
+import { MemoryComposerModal } from "@/components/admin/MemoryComposerModal";
 
 interface SanctuaryHeaderProps {
   user: AuthenticatedUser;
@@ -24,6 +25,7 @@ export function SanctuaryHeader({ user }: SanctuaryHeaderProps) {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -56,6 +58,13 @@ export function SanctuaryHeader({ user }: SanctuaryHeaderProps) {
         isOpen={isHelpOpen}
         onClose={() => setIsHelpOpen(false)}
       />
+
+      {user.role === "admin" && (
+        <MemoryComposerModal
+          isOpen={isComposerOpen}
+          onClose={() => setIsComposerOpen(false)}
+        />
+      )}
 
       <header
         role="banner"
@@ -119,6 +128,19 @@ export function SanctuaryHeader({ user }: SanctuaryHeaderProps) {
 
           {/* Actions & Utilities */}
           <div className="flex items-center gap-2">
+            {/* Admin Inscribe Button */}
+            {user.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => setIsComposerOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/40 text-primary-light hover:bg-primary hover:text-background-void text-xs font-semibold tracking-wide transition-all shadow-sm focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Inscribe new artifact into sanctuary"
+              >
+                <span className="text-sm leading-none font-bold">+</span>
+                <span>Inscribe</span>
+              </button>
+            )}
+
             {/* Shortcuts Help Button */}
             <button
               type="button"
@@ -210,6 +232,19 @@ export function SanctuaryHeader({ user }: SanctuaryHeaderProps) {
                 </Link>
               );
             })}
+            {user.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsComposerOpen(true);
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-primary-light bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors focus-visible:ring-2 focus-visible:ring-primary flex items-center justify-between"
+              >
+                <span>+ Inscribe Artifact</span>
+                <span className="text-xs uppercase tracking-widest text-primary font-mono">Admin</span>
+              </button>
+            )}
             <div className="pt-2 border-t border-background-border/50">
               <button
                 type="button"

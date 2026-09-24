@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#141824"/>
+      <stop offset="100%" stop-color="#06070a"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3E5AB"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#997A15"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="180" stroke="url(#gold)" stroke-width="8" fill="none" opacity="0.3"/>
+  <circle cx="256" cy="256" r="140" stroke="url(#gold)" stroke-width="12" fill="none" opacity="0.8"/>
+  <circle cx="256" cy="256" r="90" stroke="url(#gold)" stroke-width="6" fill="none" opacity="0.5"/>
+  <circle cx="256" cy="256" r="24" fill="url(#gold)"/>
+  <line x1="256" y1="76" x2="256" y2="436" stroke="url(#gold)" stroke-width="6" opacity="0.7"/>
+  <line x1="76" y1="256" x2="436" y2="256" stroke="url(#gold)" stroke-width="6" opacity="0.7"/>
+  <line x1="128" y1="128" x2="384" y2="384" stroke="url(#gold)" stroke-width="3" opacity="0.4"/>
+  <line x1="128" y1="384" x2="384" y2="128" stroke="url(#gold)" stroke-width="3" opacity="0.4"/>
+</svg>

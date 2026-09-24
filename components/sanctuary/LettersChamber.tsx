@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { MemorySummary } from "@/lib/data/memories";
 import { EmptyState } from "./EmptyState";
+import { VoiceRecorder } from "@/components/media/VoiceRecorder";
 
 interface LettersChamberProps {
   letters: MemorySummary[];
@@ -17,10 +18,13 @@ export function LettersChamber({ letters }: LettersChamberProps) {
 
   if (letters.length === 0) {
     return (
-      <EmptyState
-        title="The Correspondence Chamber is Empty"
-        description="No written letters or manuscripts have been sealed in this chamber yet."
-      />
+      <div className="space-y-6">
+        <VoiceRecorder />
+        <EmptyState
+          title="The Correspondence Chamber is Empty"
+          description="No written letters or manuscripts have been sealed in this chamber yet."
+        />
+      </div>
     );
   }
 
@@ -42,7 +46,7 @@ export function LettersChamber({ letters }: LettersChamberProps) {
       {/* Thread / Letter List (Sidebar on desktop) */}
       <aside
         aria-label="Letters Archive"
-        className="lg:col-span-4 rounded-xl border border-amber-900/40 bg-background-surface/80 p-4 backdrop-blur-sm space-y-3"
+        className="lg:col-span-4 rounded-xl border border-amber-900/40 bg-background-surface/80 p-4 backdrop-blur-sm space-y-4"
       >
         <div className="flex items-center justify-between pb-3 border-b border-background-border">
           <h2 className="font-serif text-lg font-semibold text-amber-200">
@@ -52,6 +56,9 @@ export function LettersChamber({ letters }: LettersChamberProps) {
             {letters.length} {letters.length === 1 ? "letter" : "letters"}
           </span>
         </div>
+
+        {/* Voice Memo Recorder */}
+        <VoiceRecorder />
 
         <ul className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
           {letters.map((letter) => {
