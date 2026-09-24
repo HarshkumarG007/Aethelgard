@@ -111,7 +111,7 @@ export const memoryAssets = pgTable(
     height: integer("height"),
     durationSeconds: integer("duration_seconds"),
     isPrimary: boolean("is_primary").notNull().default(false),
-    variants: jsonb("variants").$type<Record<string, string>>(),
+    variants: jsonb("variants").$type<Record<string, unknown>>(),
     errorCode: text("error_code"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     purgeAfter: timestamp("purge_after", { withTimezone: true }),

@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     testTimeout: 20000, // Headroom for Argon2id cryptographic computation
+    fileParallelism: false, // Run test files sequentially to avoid concurrent database truncate race conditions
   },
   resolve: {
     alias: {

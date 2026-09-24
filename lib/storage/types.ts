@@ -30,11 +30,18 @@ export interface ObjectMeta {
   contentType: string;
 }
 
+export interface VariantInfo {
+  storageKey: string;
+  width: number;
+  height: number;
+}
+
 export interface VariantManifest {
-  thumbnail?: string;
-  small?: string;
-  medium?: string;
-  large?: string;
+  thumbnail?: VariantInfo | string;
+  small?: VariantInfo | string;
+  medium?: VariantInfo | string;
+  large?: VariantInfo | string;
+  [key: string]: VariantInfo | string | undefined;
 }
 
 export interface MediaStorage {
@@ -42,5 +49,7 @@ export interface MediaStorage {
   verifyUploadedObject(storageKey: string): Promise<ObjectMeta>;
   createDownloadAuthorization(params: DownloadAuthParams): Promise<DownloadAuth>;
   deleteObject(storageKey: string): Promise<void>;
-  processImageVariants?(sourceKey: string, assetId: string): Promise<VariantManifest>;
+  getObjectBuffer(storageKey: string): Promise<Buffer>;
+  putObject(storageKey: string, buffer: Buffer, contentType: string): Promise<void>;
+  processImageVariants(sourceKey: string, assetId: string): Promise<VariantManifest>;
 }

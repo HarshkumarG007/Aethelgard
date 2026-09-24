@@ -13,6 +13,7 @@ import type {
   DownloadAuthParams,
   DownloadAuth,
   ObjectMeta,
+  VariantManifest,
 } from "./types";
 
 export interface R2MediaStorageOptions {
@@ -94,6 +95,35 @@ export class R2MediaStorage implements MediaStorage {
     };
   }
 
+  async getObjectBuffer(storageKey: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: storageKey,
+    });
+    const response = await this.client.send(command);
+    if (!response.Body) {
+      throw new Error(`Failed to read object from R2: ${storageKey}`);
+    }
+    const byteArray = await response.Body.transformToByteArray();
+    return Buffer.from(byteArray);
+  }
+
+  async putObject(storageKey: string, buffer: Buffer, contentType: string): Promise<void> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: storageKey,
+      Body: buffer,
+      ContentType: contentType,
+    });
+    await this.client.send(command);
+  }
+
+  async processImageVariants(sourceKey: string, assetId: string): Promise<VariantManifest> {
+    const { processImageWithSharp } = await import("./imageProcessing");
+    const result = await processImageWithSharp(this, sourceKey, assetId);
+    return result.manifest;
+  }
+
   async deleteObject(storageKey: string): Promise<void> {
     const command = new DeleteObjectCommand({
       Bucket: this.bucketName,
@@ -103,3 +133,4 @@ export class R2MediaStorage implements MediaStorage {
     await this.client.send(command);
   }
 }
+

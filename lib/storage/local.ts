@@ -7,6 +7,7 @@ import type {
   DownloadAuthParams,
   DownloadAuth,
   ObjectMeta,
+  VariantManifest,
 } from "./types";
 
 export interface LocalMediaStorageOptions {
@@ -67,6 +68,23 @@ export class LocalMediaStorage implements MediaStorage {
     };
   }
 
+  async getObjectBuffer(storageKey: string): Promise<Buffer> {
+    const filePath = this.getFilePath(storageKey);
+    return await fs.readFile(filePath);
+  }
+
+  async putObject(storageKey: string, buffer: Buffer, _contentType: string): Promise<void> {
+    const filePath = this.getFilePath(storageKey);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, buffer);
+  }
+
+  async processImageVariants(sourceKey: string, assetId: string): Promise<VariantManifest> {
+    const { processImageWithSharp } = await import("./imageProcessing");
+    const result = await processImageWithSharp(this, sourceKey, assetId);
+    return result.manifest;
+  }
+
   async deleteObject(storageKey: string): Promise<void> {
     const filePath = this.getFilePath(storageKey);
     try {
@@ -78,3 +96,4 @@ export class LocalMediaStorage implements MediaStorage {
     }
   }
 }
+

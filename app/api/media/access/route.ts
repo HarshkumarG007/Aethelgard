@@ -158,9 +158,15 @@ export async function POST(request: Request) {
     // 7. Resolve storage key for requested variant
     let targetStorageKey = asset.storageKey;
     if (asset.variants && typeof asset.variants === "object") {
-      const variantRecord = asset.variants as Record<string, string>;
+      const variantRecord = asset.variants as Record<string, unknown>;
       if (variant in variantRecord && variantRecord[variant]) {
-        targetStorageKey = variantRecord[variant];
+        const v = variantRecord[variant];
+        targetStorageKey =
+          typeof v === "string"
+            ? v
+            : typeof v === "object" && v !== null && "storageKey" in v
+            ? String((v as { storageKey: unknown }).storageKey)
+            : asset.storageKey;
       } else if (Object.keys(variantRecord).length > 0) {
         // If variants exist but requested variant is not present, fail validation
         return NextResponse.json(
