@@ -1,0 +1,50 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aethelgard}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aethelgard}?sslmode=disable
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PASSPHRASE_HASH=${ADMIN_PASSPHRASE_HASH}
+      - VIEWER_PASSPHRASE_HASH=${VIEWER_PASSPHRASE_HASH}
+      - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
+      - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
+      - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
+      - CLOUDFLARE_R2_PUBLIC_URL=${CLOUDFLARE_R2_PUBLIC_URL}
+      - NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aethelgard-internal
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aethelgard}
+      POSTGRES_USER: ${POSTGRES_USER:-aethelgard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aethelgard} -d ${POSTGRES_DB:-aethelgard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aethelgard-internal
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  aethelgard-internal:
+    driver: bridge

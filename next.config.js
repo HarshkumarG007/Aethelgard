@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   serverExternalPackages: ["@node-rs/argon2", "sharp", "postgres"],
   images: {
     formats: ["image/avif", "image/webp"],

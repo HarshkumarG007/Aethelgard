@@ -148,4 +148,35 @@ describe("Phase 7: Composer Modal, Voice Recorder & PWA Verification", () => {
       expect(viewerContent).toContain("wavePattern");
     });
   });
+
+  describe("Sub-Gate 7.6: Turnkey Production Cloud Deployment Infrastructure", () => {
+    it("verifies multi-stage Dockerfile implements zero-root container security and standalone execution", async () => {
+      const dockerfilePath = path.resolve(process.cwd(), "Dockerfile");
+      const content = await fs.readFile(dockerfilePath, "utf8");
+      expect(content).toContain("FROM node:20-alpine AS base");
+      expect(content).toContain("FROM base AS builder");
+      expect(content).toContain("FROM node:20-alpine AS runner");
+      expect(content).toContain("adduser --system --uid 1001 nextjs");
+      expect(content).toContain("USER nextjs");
+      expect(content).toContain('CMD ["node", "server.js"]');
+    });
+
+    it("verifies production docker-compose stack defines isolated networking and postgres healthchecks", async () => {
+      const composePath = path.resolve(process.cwd(), "docker-compose.prod.yml");
+      const content = await fs.readFile(composePath, "utf8");
+      expect(content).toContain("image: postgres:16-alpine");
+      expect(content).toContain("pg_isready");
+      expect(content).toContain("service_healthy");
+      expect(content).toContain("aethelgard-internal");
+    });
+
+    it("verifies comprehensive operations manual documents Vercel, Fly.io, Self-Hosted Docker and Release Gate", async () => {
+      const guidePath = path.resolve(process.cwd(), "docs/DEPLOYMENT_GUIDE.md");
+      const content = await fs.readFile(guidePath, "utf8");
+      expect(content).toContain("Vercel + Neon PostgreSQL");
+      expect(content).toContain("Fly.io Deployment");
+      expect(content).toContain("Self-Hosted VPS with Docker Compose & Caddy");
+      expect(content).toContain("Production Release Gate Checklist");
+    });
+  });
 });
