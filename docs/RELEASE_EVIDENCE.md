@@ -1,7 +1,7 @@
 # AETHELGARD — Release Evidence & Acceptance Dossier v1.0
 
 **Release Phase:** Complete Sanctuary System (Phases 0 through 6)  
-**Release Checkpoint Commit:** `bfdf50a`  
+**Release Checkpoint Commit:** `22cce87`  
 **Deployment Timestamp:** 2026-09-24T07:49:00Z  
 **Target Environment:** Production / Active-LTS  
 
@@ -19,7 +19,9 @@ Phase 3B.1 (Adaptive Quality)    → 2aeccf0
 Phase 3C (Interactive Sanctuary) → 2f5d649
 Phase 4 (Media Pipeline)         → b86ee9e
 Phase 5 (Experience Completion)  → c1a6a23
-Phase 6 (Hardening & DR)         → bfdf50a  ← CURRENT ACCEPTED RELEASE
+Phase 6 (Hardening & DR)         → bfdf50a
+Release Dossier                  → 60824eb
+Project Documentation            → 22cce87  ← CURRENT ACCEPTED RELEASE
 ```
 
 - **Dependency Lockfile State:** Pinned dependencies cleanly resolved under npm strict tree (`package-lock.json`).
