@@ -8,27 +8,22 @@ export function resolveMediaStorage(env: NodeJS.ProcessEnv = process.env): Media
     (env.NODE_ENV === "production" && env.APP_ENV !== "development");
 
   if (isProduction) {
-    const requiredKeys = [
-      "R2_ACCOUNT_ID",
-      "R2_ACCESS_KEY_ID",
-      "R2_SECRET_ACCESS_KEY",
-      "R2_BUCKET_NAME",
-    ] as const;
+    const accountId = env.R2_ACCOUNT_ID || env.CLOUDFLARE_R2_ACCOUNT_ID;
+    const accessKeyId = env.R2_ACCESS_KEY_ID || env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+    const secretAccessKey = env.R2_SECRET_ACCESS_KEY || env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+    const bucketName = env.R2_BUCKET_NAME || env.CLOUDFLARE_R2_BUCKET_NAME;
 
-    const missing = requiredKeys.filter((k) => !env[k]);
-    if (missing.length > 0) {
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
       throw new Error(
-        `[FATAL] Production media storage configuration error: Missing required Cloudflare R2 variables: ${missing.join(
-          ", "
-        )}. Refusing to boot with silent downgrade.`
+        "[FATAL] Production media storage configuration error: Missing required Cloudflare R2 variables (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME). Refusing to boot with silent downgrade."
       );
     }
 
     return new R2MediaStorage({
-      accountId: env.R2_ACCOUNT_ID!,
-      accessKeyId: env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
-      bucketName: env.R2_BUCKET_NAME!,
+      accountId,
+      accessKeyId,
+      secretAccessKey,
+      bucketName,
     });
   }
 
