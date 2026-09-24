@@ -10,6 +10,29 @@ jobs:
   baseline:
     name: Baseline Verification (Lint, Typecheck, Test, Build)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aethelgard
+          POSTGRES_USER: aethelgard
+          POSTGRES_PASSWORD: dev-only-password
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://aethelgard:dev-only-password@localhost:5434/aethelgard
+      SESSION_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      VIEWER_PASSPHRASE: aethelgard-visitor-dev-passphrase-2026
+      ADMIN_PASSPHRASE: aethelgard-admin-dev-passphrase-2026
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,6 +52,18 @@ jobs:
       - name: Run TypeScript Typecheck
         run: npm run typecheck
 
+      - name: Push database schema
+        run: npm run db:push
+
+      - name: Seed database credentials
+        run: npm run db:seed
+
+      - name: Seed sanctuary content
+        run: npm run db:seed:sanctuary
+
+      - name: Generate synthetic dev media
+        run: npx tsx scripts/generate-dev-media.ts
+
       - name: Run Unit Tests
         run: npm test
 
@@ -36,4 +71,4 @@ jobs:
         run: npm run build
         env:
           APP_ENV: development
-          DATABASE_URL: postgresql://aethelgard:dev-only-password@localhost:5432/aethelgard
+          DATABASE_URL: postgresql://aethelgard:dev-only-password@localhost:5434/aethelgard
