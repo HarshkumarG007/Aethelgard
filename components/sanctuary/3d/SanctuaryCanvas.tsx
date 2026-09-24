@@ -73,12 +73,8 @@ export function computeSpatialPositions(
 
     return {
       id: m.id,
+      chapterId: m.chapter?.id,
       kind: m.kind,
-      title: m.title,
-      description: m.description,
-      memoryDate: m.memoryDate,
-      emotion: m.emotion,
-      isFavorite: m.isFavorite,
       position: [x, y, z] as [number, number, number],
     };
   });

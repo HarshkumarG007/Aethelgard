@@ -2,6 +2,7 @@
 
 import React, { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
+import { useSanctuary3DStore } from "../state/sanctuary3d.store";
 
 interface IslandData {
   chapterId: string;
@@ -92,6 +93,37 @@ export function ChapterIslandMesh({ islands }: ChapterIslandMeshProps) {
     }
   }, [islands]);
 
+  const { focusChapter } = useSanctuary3DStore();
+  const TOUCH_MOVE_CANCEL_THRESHOLD_PX = 100; // 10px squared
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDown = (e: any) => {
+    e.stopPropagation();
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: any) => {
+    e.stopPropagation();
+    if (!pointerDownPos.current) return;
+
+    const dx = e.clientX - pointerDownPos.current.x;
+    const dy = e.clientY - pointerDownPos.current.y;
+    const distSq = dx * dx + dy * dy;
+
+    pointerDownPos.current = null; // reset
+
+    if (distSq > TOUCH_MOVE_CANCEL_THRESHOLD_PX) {
+      return;
+    }
+
+    if (e.instanceId !== undefined && islands[e.instanceId]) {
+      const island = islands[e.instanceId];
+      if (island.chapterId !== "origin") {
+        focusChapter(island.chapterId);
+      }
+    }
+  };
+
   // Deterministic GPU disposal
   useEffect(() => {
     return () => {
@@ -107,6 +139,8 @@ export function ChapterIslandMesh({ islands }: ChapterIslandMeshProps) {
       <instancedMesh
         ref={daisMeshRef}
         args={[daisGeometry, daisMaterial, islandCount]}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
       />
       <instancedMesh
         ref={ringMeshRef}

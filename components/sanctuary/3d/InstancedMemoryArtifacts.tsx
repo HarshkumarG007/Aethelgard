@@ -22,7 +22,7 @@ export function InstancedMemoryArtifacts({
   memories,
   onNavigate,
 }: InstancedMemoryArtifactsProps) {
-  const { hoverEnter, hoverLeave, focusArtifact, activateArtifact } =
+  const { hoverEnter, hoverLeave, focusMemory, activateMemory } =
     useSanctuary3DStore();
 
   const standardMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -140,6 +140,10 @@ export function InstancedMemoryArtifacts({
     };
   }, [standardGeom, letterGeom, milestoneGeom, futureGeom, material]);
 
+  const TOUCH_MOVE_CANCEL_THRESHOLD_PX = 100; // 10px squared
+
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+
   const handlePointerOver = (
     e: ThreeEvent<PointerEvent>,
     items: SpatialMemoryData[]
@@ -160,15 +164,33 @@ export function InstancedMemoryArtifacts({
     }
   };
 
-  const handleClick = (
-    e: ThreeEvent<MouseEvent>,
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (
+    e: ThreeEvent<PointerEvent>,
     items: SpatialMemoryData[]
   ) => {
     e.stopPropagation();
+    if (!pointerDownPos.current) return;
+
+    const dx = e.clientX - pointerDownPos.current.x;
+    const dy = e.clientY - pointerDownPos.current.y;
+    const distSq = dx * dx + dy * dy;
+
+    pointerDownPos.current = null; // reset
+
+    if (distSq > TOUCH_MOVE_CANCEL_THRESHOLD_PX) {
+      // It was a scroll/cancel, not a tap
+      return;
+    }
+
     if (e.instanceId !== undefined && items[e.instanceId]) {
       const item = items[e.instanceId];
-      focusArtifact(item.id);
-      activateArtifact(item.id);
+      focusMemory(item.id);
+      activateMemory(item.id);
       onNavigate(item.id);
     }
   };
@@ -181,7 +203,8 @@ export function InstancedMemoryArtifacts({
           args={[standardGeom, material, grouped.standard.length]}
           onPointerOver={(e) => handlePointerOver(e, grouped.standard)}
           onPointerOut={(e) => handlePointerOut(e, grouped.standard)}
-          onClick={(e) => handleClick(e, grouped.standard)}
+          onPointerDown={handlePointerDown}
+          onPointerUp={(e) => handlePointerUp(e, grouped.standard)}
         />
       )}
       {grouped.letter.length > 0 && (
@@ -190,7 +213,8 @@ export function InstancedMemoryArtifacts({
           args={[letterGeom, material, grouped.letter.length]}
           onPointerOver={(e) => handlePointerOver(e, grouped.letter)}
           onPointerOut={(e) => handlePointerOut(e, grouped.letter)}
-          onClick={(e) => handleClick(e, grouped.letter)}
+          onPointerDown={handlePointerDown}
+          onPointerUp={(e) => handlePointerUp(e, grouped.letter)}
         />
       )}
       {grouped.milestone.length > 0 && (
@@ -199,7 +223,8 @@ export function InstancedMemoryArtifacts({
           args={[milestoneGeom, material, grouped.milestone.length]}
           onPointerOver={(e) => handlePointerOver(e, grouped.milestone)}
           onPointerOut={(e) => handlePointerOut(e, grouped.milestone)}
-          onClick={(e) => handleClick(e, grouped.milestone)}
+          onPointerDown={handlePointerDown}
+          onPointerUp={(e) => handlePointerUp(e, grouped.milestone)}
         />
       )}
       {grouped.future.length > 0 && (
@@ -208,7 +233,8 @@ export function InstancedMemoryArtifacts({
           args={[futureGeom, material, grouped.future.length]}
           onPointerOver={(e) => handlePointerOver(e, grouped.future)}
           onPointerOut={(e) => handlePointerOut(e, grouped.future)}
-          onClick={(e) => handleClick(e, grouped.future)}
+          onPointerDown={handlePointerDown}
+          onPointerUp={(e) => handlePointerUp(e, grouped.future)}
         />
       )}
     </group>

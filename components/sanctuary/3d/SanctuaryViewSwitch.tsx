@@ -39,7 +39,7 @@ export function SanctuaryViewSwitch({
     view,
     enter3D,
     exitTo2D,
-    focusArtifact,
+    focusMemory,
     escapeArtifact,
   } = useSanctuary3DStore();
 
@@ -154,8 +154,8 @@ export function SanctuaryViewSwitch({
               <li key={m.id}>
                 <Link
                   href={`/memory/${m.id}`}
-                  onFocus={() => focusArtifact(m.id)}
-                  onBlur={() => escapeArtifact()}
+                  onFocus={() => focusMemory(m.id)}
+                  onBlur={() => escapeArtifact(m.chapter?.id)}
                   className="group block p-3 rounded-lg border border-background-border/60 bg-background-surface/60 hover:bg-background-elevated/70 hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary transition-all text-left"
                 >
                   <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider mb-1">

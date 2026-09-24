@@ -9,7 +9,8 @@ import type {
 } from "./sanctuary3d.types";
 
 export const INITIAL_ARTIFACT_CONTEXT: Readonly<ArtifactContext> = Object.freeze({
-  activeId: null,
+  spatialFocus: { kind: "none" as const },
+  hoveredId: null,
   state: "DORMANT",
 });
 
@@ -48,111 +49,91 @@ export const INITIAL_QUALITY_CONTEXT: Readonly<QualityContext> = Object.freeze({
 });
 
 /**
- * Pure artifact state machine:
- * DORMANT <-> PROXIMATE <-> FOCUSED -> ACTIVE
+ * Pure artifact state machine that strictly enforces the SpatialFocus invariant.
  *
  * Guaranteed Invariants:
- * - Pure function: no side-effects, no browser/DOM references, no async logic.
- * - Direct transition from DORMANT to ACTIVE is illegal and rejected.
- * - Direct transition from PROXIMATE to ACTIVE is illegal and rejected.
- * - POINTER_LEAVE for an artifact other than the active one is rejected.
- * - In FOCUSED state, POINTER_LEAVE is ignored (keyboard/DOM focus dominates over hover).
- * - ESCAPE from ACTIVE returns to FOCUSED.
- * - ESCAPE from FOCUSED returns to DORMANT.
- * - Repeated ESCAPE in DORMANT remains DORMANT (idempotent).
- * - RESET returns to DORMANT with null activeId.
+ * - SpatialFocus.kind === "memory" => exact memory may be FOCUSED or ACTIVE.
+ * - SpatialFocus.kind === "chapter" => no memory may be FOCUSED or ACTIVE.
+ * - SpatialFocus.kind === "none" => no memory may be FOCUSED or ACTIVE.
+ * - ACTIVE strictly means "activation intent received" (side-effect is navigation).
  */
 export function transitionArtifact(
   current: ArtifactContext,
   event: ArtifactEvent
 ): ArtifactContext {
-  switch (current.state) {
-    case "DORMANT": {
-      if (event.type === "POINTER_ENTER") {
-        return { state: "PROXIMATE", activeId: event.id };
-      }
-      if (event.type === "FOCUS") {
-        return { state: "FOCUSED", activeId: event.id };
-      }
-      // Illegal transitions from DORMANT
-      if (event.type === "ACTIVATE" || event.type === "POINTER_LEAVE") {
-        return current;
-      }
-      if (event.type === "ESCAPE" || event.type === "RESET") {
-        return { state: "DORMANT", activeId: null };
-      }
-      return current;
-    }
+  switch (event.type) {
+    case "FOCUS_MEMORY":
+      return {
+        ...current,
+        spatialFocus: { kind: "memory", memoryId: event.id },
+        state: "FOCUSED",
+      };
 
-    case "PROXIMATE": {
-      if (event.type === "POINTER_LEAVE") {
-        // Only return to DORMANT if leaving the currently proximate artifact
-        if (event.id === current.activeId) {
-          return { state: "DORMANT", activeId: null };
-        }
-        return current;
-      }
-      if (event.type === "POINTER_ENTER") {
-        return { state: "PROXIMATE", activeId: event.id };
-      }
-      if (event.type === "FOCUS") {
-        return { state: "FOCUSED", activeId: event.id };
-      }
-      if (event.type === "ESCAPE" || event.type === "RESET") {
-        return { state: "DORMANT", activeId: null };
-      }
-      // Direct ACTIVATE from PROXIMATE is illegal (must be FOCUSED first)
-      if (event.type === "ACTIVATE") {
-        return current;
-      }
-      return current;
-    }
+    case "FOCUS_CHAPTER":
+      return {
+        ...current,
+        spatialFocus: { kind: "chapter", chapterId: event.chapterId },
+        state: "DORMANT",
+      };
 
-    case "FOCUSED": {
-      if (event.type === "ACTIVATE") {
-        if (event.id === current.activeId) {
-          return { state: "ACTIVE", activeId: event.id };
-        }
-        return current;
-      }
-      if (event.type === "FOCUS") {
-        return { state: "FOCUSED", activeId: event.id };
-      }
-      if (event.type === "ESCAPE" || event.type === "RESET") {
-        return { state: "DORMANT", activeId: null };
-      }
-      // Focus dominates over pointer hover leaves/enters
-      if (event.type === "POINTER_LEAVE" || event.type === "POINTER_ENTER") {
-        return current;
-      }
-      return current;
-    }
-
-    case "ACTIVE": {
-      if (event.type === "ESCAPE") {
-        // Step down from ACTIVE to FOCUSED
-        return { state: "FOCUSED", activeId: current.activeId };
-      }
-      if (event.type === "RESET") {
-        return { state: "DORMANT", activeId: null };
-      }
-      if (event.type === "FOCUS") {
-        return { state: "FOCUSED", activeId: event.id };
-      }
-      // Redundant or illegal in ACTIVE
+    case "ACTIVATE_MEMORY":
       if (
-        event.type === "ACTIVATE" ||
-        event.type === "POINTER_ENTER" ||
-        event.type === "POINTER_LEAVE"
+        current.spatialFocus.kind === "memory" &&
+        current.spatialFocus.memoryId === event.id
       ) {
-        return current;
+        return {
+          ...current,
+          state: "ACTIVE",
+        };
       }
       return current;
-    }
 
-    default:
+    case "ESCAPE":
+      if (current.state === "ACTIVE") {
+        return {
+          ...current,
+          state: "FOCUSED",
+        };
+      }
+      if (current.state === "FOCUSED") {
+        return {
+          ...current,
+          spatialFocus: event.parentChapterId
+            ? { kind: "chapter", chapterId: event.parentChapterId }
+            : { kind: "none" },
+          state: "DORMANT",
+        };
+      }
+      if (current.spatialFocus.kind === "chapter") {
+        return {
+          ...current,
+          spatialFocus: { kind: "none" },
+          state: "DORMANT",
+        };
+      }
+      return current;
+
+    case "RESET":
+      return { ...INITIAL_ARTIFACT_CONTEXT };
+
+    case "POINTER_ENTER":
+      return {
+        ...current,
+        hoveredId: event.id,
+        state: current.state === "DORMANT" ? "PROXIMATE" : current.state,
+      };
+
+    case "POINTER_LEAVE":
+      if (current.hoveredId === event.id) {
+        return {
+          ...current,
+          hoveredId: null,
+          state: current.state === "PROXIMATE" ? "DORMANT" : current.state,
+        };
+      }
       return current;
   }
+  return current;
 }
 
 /**

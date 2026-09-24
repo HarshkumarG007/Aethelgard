@@ -24,9 +24,10 @@ export interface Sanctuary3DStore {
   dispatchArtifact: (event: ArtifactEvent) => void;
   hoverEnter: (id: string) => void;
   hoverLeave: (id: string) => void;
-  focusArtifact: (id: string) => void;
-  activateArtifact: (id: string) => void;
-  escapeArtifact: () => void;
+  focusMemory: (id: string) => void;
+  focusChapter: (chapterId: string) => void;
+  activateMemory: (id: string) => void;
+  escapeArtifact: (parentChapterId?: string) => void;
   resetArtifact: () => void;
 
   // Spatial view lifecycle state machine
@@ -63,17 +64,21 @@ export const useSanctuary3DStore = create<Sanctuary3DStore>((set) => ({
     set((state) => ({
       artifact: transitionArtifact(state.artifact, { type: "POINTER_LEAVE", id }),
     })),
-  focusArtifact: (id) =>
+  focusMemory: (id) =>
     set((state) => ({
-      artifact: transitionArtifact(state.artifact, { type: "FOCUS", id }),
+      artifact: transitionArtifact(state.artifact, { type: "FOCUS_MEMORY", id }),
     })),
-  activateArtifact: (id) =>
+  focusChapter: (chapterId) =>
     set((state) => ({
-      artifact: transitionArtifact(state.artifact, { type: "ACTIVATE", id }),
+      artifact: transitionArtifact(state.artifact, { type: "FOCUS_CHAPTER", chapterId }),
     })),
-  escapeArtifact: () =>
+  activateMemory: (id) =>
     set((state) => ({
-      artifact: transitionArtifact(state.artifact, { type: "ESCAPE" }),
+      artifact: transitionArtifact(state.artifact, { type: "ACTIVATE_MEMORY", id }),
+    })),
+  escapeArtifact: (parentChapterId) =>
+    set((state) => ({
+      artifact: transitionArtifact(state.artifact, { type: "ESCAPE", parentChapterId }),
     })),
   resetArtifact: () =>
     set((state) => ({

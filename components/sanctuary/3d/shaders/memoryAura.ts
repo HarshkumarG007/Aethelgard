@@ -10,13 +10,28 @@ varying vec3 vNormal;
 varying vec3 vViewPosition;
 uniform float uTime;
 uniform float uDisplacement;
+uniform float uScale;
+uniform float uSeedOffset;
 
 void main() {
-  vNormal = normalize(normalMatrix * normal);
-  vec3 pos = position;
+  vec3 pos = position * uScale;
+  
   if (uDisplacement > 0.0) {
+    // Rotation around Y axis
+    float angle = uTime * 0.2;
+    float s = sin(angle);
+    float c = cos(angle);
+    mat2 rotY = mat2(c, -s, s, c);
+    pos.xz = rotY * pos.xz;
+    
+    // Surface displacement
     pos += normal * (sin(uTime * 2.0 + position.y * 3.0) * 0.03 * uDisplacement);
+    
+    // Ambient levitation
+    pos.y += sin(uTime * 1.2 + uSeedOffset) * 0.08;
   }
+  
+  vNormal = normalize(normalMatrix * normal);
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   vViewPosition = -mvPosition.xyz;
   gl_Position = projectionMatrix * mvPosition;
@@ -83,6 +98,8 @@ export interface ArtifactMaterialOptions {
   emissiveIntensity?: number;
   shaderProfile?: "full" | "static" | "standard";
   opacity?: number;
+  globalUniforms?: { uTime: { value: number } };
+  seedOffset?: number;
 }
 
 /**
@@ -134,10 +151,12 @@ export function createArtifactMaterial(options: ArtifactMaterialOptions): THREE.
     vertexShader: VERTEX_SHADER_SOURCE,
     fragmentShader: FRAGMENT_SHADER_SOURCE,
     uniforms: {
-      uTime: { value: 0 },
+      uTime: options.globalUniforms ? options.globalUniforms.uTime : { value: 0 },
       uDisplacement: { value: displacement },
       uColor: { value: threeColor },
       uEmissiveIntensity: { value: emissiveIntensity },
+      uScale: { value: 1.0 },
+      uSeedOffset: { value: options.seedOffset ?? 0.0 },
     },
     transparent: true,
     depthWrite: true,

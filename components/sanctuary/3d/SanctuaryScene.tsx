@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
 import type { MemorySummary } from "@/lib/data/memories";
 import type { ChapterSummary } from "@/lib/data/chapters";
 import type { SpatialMemoryData } from "./state/sanctuary3d.types";
@@ -22,6 +23,11 @@ interface SanctuarySceneProps {
   onNavigate: (id: string) => void;
 }
 
+// Centralized time uniform for all shaders in the 3D scene
+const sceneUniforms = {
+  uTime: { value: 0 },
+};
+
 export function SanctuaryScene({
   memories,
   chapters = [],
@@ -32,6 +38,9 @@ export function SanctuaryScene({
 
   useEffect(() => {
     setSceneReady();
+    return () => {
+      sceneUniforms.uTime.value = 0;
+    };
   }, [setSceneReady]);
 
   // Compute pure deterministic archipelago layout
@@ -55,9 +64,31 @@ export function SanctuaryScene({
     return partitionSceneMemories(
       layout.memories,
       memoryLookup,
-      artifact.activeId
+      artifact.spatialFocus.kind === "memory" ? artifact.spatialFocus.memoryId : null
     );
-  }, [layout.memories, memoryLookup, artifact.activeId]);
+  }, [layout.memories, memoryLookup, artifact.spatialFocus]);
+
+  const cameraTarget = useMemo(() => {
+    const focus = artifact.spatialFocus;
+    if (focus.kind === "chapter") {
+      const chapterId = focus.chapterId;
+      const island = layout.islands.find((i) => i.chapterId === chapterId);
+      if (island) {
+        return { kind: "chapter", position: island.center as [number, number, number] };
+      }
+    }
+    if (focus.kind === "memory" && focusedData) {
+      return { kind: "memory", position: focusedData.position };
+    }
+    return { kind: "archipelago", position: [0, 0, 0] as [number, number, number] };
+  }, [artifact.spatialFocus, layout.islands, focusedData]);
+
+  // Single centralized animation loop
+  useFrame((_, delta) => {
+    if (!reducedMotion && quality.tier !== "EXHAUSTED" && quality.tier !== "TIER_1") {
+      sceneUniforms.uTime.value += delta;
+    }
+  });
 
   return (
     <>
@@ -95,6 +126,7 @@ export function SanctuaryScene({
           memory={focusedData}
           reducedMotion={reducedMotion}
           onNavigate={onNavigate}
+          globalUniforms={sceneUniforms}
         />
       )}
 
@@ -105,6 +137,7 @@ export function SanctuaryScene({
           memory={mem}
           reducedMotion={reducedMotion}
           onNavigate={onNavigate}
+          globalUniforms={sceneUniforms}
         />
       ))}
 
@@ -119,7 +152,7 @@ export function SanctuaryScene({
 
       {/* Archipelago-Aware Camera Rig */}
       <CameraRig
-        activePosition={focusedData?.position}
+        target={cameraTarget as { kind: string; position: [number, number, number] }}
         reducedMotion={reducedMotion}
       />
     </>

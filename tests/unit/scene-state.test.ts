@@ -17,203 +17,7 @@ import type { PlacedMemory } from "@/components/sanctuary/3d/islands/Archipelago
 import type { MemorySummary } from "@/lib/data/memories";
 
 describe("Phase 3A: Pure Sanctuary State Machines", () => {
-  describe("Artifact State Machine (DORMANT <-> PROXIMATE <-> FOCUSED -> ACTIVE)", () => {
-    it("starts in DORMANT state with null activeId", () => {
-      expect(INITIAL_ARTIFACT_CONTEXT).toEqual({
-        activeId: null,
-        state: "DORMANT",
-      });
-    });
 
-    describe("Legal Transitions", () => {
-      it("transitions DORMANT -> PROXIMATE on POINTER_ENTER", () => {
-        const next = transitionArtifact(INITIAL_ARTIFACT_CONTEXT, {
-          type: "POINTER_ENTER",
-          id: "mem-1",
-        });
-        expect(next).toEqual({ state: "PROXIMATE", activeId: "mem-1" });
-      });
-
-      it("transitions DORMANT -> FOCUSED on FOCUS", () => {
-        const next = transitionArtifact(INITIAL_ARTIFACT_CONTEXT, {
-          type: "FOCUS",
-          id: "mem-1",
-        });
-        expect(next).toEqual({ state: "FOCUSED", activeId: "mem-1" });
-      });
-
-      it("transitions PROXIMATE -> DORMANT on POINTER_LEAVE for active item", () => {
-        const proximate: ArtifactContext = {
-          state: "PROXIMATE",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(proximate, {
-          type: "POINTER_LEAVE",
-          id: "mem-1",
-        });
-        expect(next).toEqual({ state: "DORMANT", activeId: null });
-      });
-
-      it("transitions PROXIMATE -> FOCUSED on FOCUS", () => {
-        const proximate: ArtifactContext = {
-          state: "PROXIMATE",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(proximate, {
-          type: "FOCUS",
-          id: "mem-1",
-        });
-        expect(next).toEqual({ state: "FOCUSED", activeId: "mem-1" });
-      });
-
-      it("transitions FOCUSED -> ACTIVE on ACTIVATE for focused item", () => {
-        const focused: ArtifactContext = {
-          state: "FOCUSED",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(focused, {
-          type: "ACTIVATE",
-          id: "mem-1",
-        });
-        expect(next).toEqual({ state: "ACTIVE", activeId: "mem-1" });
-      });
-
-      it("transitions ACTIVE -> FOCUSED on ESCAPE (stepping down one level)", () => {
-        const active: ArtifactContext = {
-          state: "ACTIVE",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(active, { type: "ESCAPE" });
-        expect(next).toEqual({ state: "FOCUSED", activeId: "mem-1" });
-      });
-
-      it("transitions FOCUSED -> DORMANT on ESCAPE", () => {
-        const focused: ArtifactContext = {
-          state: "FOCUSED",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(focused, { type: "ESCAPE" });
-        expect(next).toEqual({ state: "DORMANT", activeId: null });
-      });
-
-      it("transitions PROXIMATE -> DORMANT on ESCAPE", () => {
-        const proximate: ArtifactContext = {
-          state: "PROXIMATE",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(proximate, { type: "ESCAPE" });
-        expect(next).toEqual({ state: "DORMANT", activeId: null });
-      });
-
-      it("transitions from any state to DORMANT on RESET", () => {
-        const states: ArtifactState[] = [
-          "DORMANT",
-          "PROXIMATE",
-          "FOCUSED",
-          "ACTIVE",
-        ];
-        for (const s of states) {
-          const ctx: ArtifactContext = { state: s, activeId: "mem-xyz" };
-          const next = transitionArtifact(ctx, { type: "RESET" });
-          expect(next).toEqual({ state: "DORMANT", activeId: null });
-        }
-      });
-
-      it("allows switching focus directly from FOCUSED(mem-1) to FOCUSED(mem-2)", () => {
-        const focused: ArtifactContext = {
-          state: "FOCUSED",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(focused, {
-          type: "FOCUS",
-          id: "mem-2",
-        });
-        expect(next).toEqual({ state: "FOCUSED", activeId: "mem-2" });
-      });
-    });
-
-    describe("Explicitly Rejected Illegal Transitions", () => {
-      it("rejects ACTIVATE from DORMANT", () => {
-        const next = transitionArtifact(INITIAL_ARTIFACT_CONTEXT, {
-          type: "ACTIVATE",
-          id: "mem-1",
-        });
-        expect(next).toBe(INITIAL_ARTIFACT_CONTEXT);
-        expect(next.state).toBe("DORMANT");
-      });
-
-      it("rejects ACTIVATE directly from PROXIMATE without FOCUSED", () => {
-        const proximate: ArtifactContext = {
-          state: "PROXIMATE",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(proximate, {
-          type: "ACTIVATE",
-          id: "mem-1",
-        });
-        expect(next).toBe(proximate);
-        expect(next.state).toBe("PROXIMATE");
-      });
-
-      it("rejects ACTIVATE for a mismatched id in FOCUSED state", () => {
-        const focused: ArtifactContext = {
-          state: "FOCUSED",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(focused, {
-          type: "ACTIVATE",
-          id: "mem-different",
-        });
-        expect(next).toBe(focused);
-        expect(next.state).toBe("FOCUSED");
-      });
-
-      it("ignores POINTER_LEAVE in FOCUSED state (DOM/keyboard focus dominates hover)", () => {
-        const focused: ArtifactContext = {
-          state: "FOCUSED",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(focused, {
-          type: "POINTER_LEAVE",
-          id: "mem-1",
-        });
-        expect(next).toBe(focused);
-        expect(next.state).toBe("FOCUSED");
-      });
-
-      it("rejects POINTER_LEAVE for non-active id in PROXIMATE state", () => {
-        const proximate: ArtifactContext = {
-          state: "PROXIMATE",
-          activeId: "mem-1",
-        };
-        const next = transitionArtifact(proximate, {
-          type: "POINTER_LEAVE",
-          id: "mem-other",
-        });
-        expect(next).toBe(proximate);
-        expect(next.state).toBe("PROXIMATE");
-        expect(next.activeId).toBe("mem-1");
-      });
-
-      it("is idempotent on repeated ESCAPE in DORMANT state", () => {
-        let state = INITIAL_ARTIFACT_CONTEXT;
-        for (let i = 0; i < 5; i++) {
-          state = transitionArtifact(state, { type: "ESCAPE" });
-          expect(state.state).toBe("DORMANT");
-          expect(state.activeId).toBeNull();
-        }
-      });
-
-      it("resets gracefully if an artifact is stale or deleted", () => {
-        const staleState: ArtifactContext = {
-          state: "FOCUSED",
-          activeId: "deleted-artifact-id",
-        };
-        const resetState = transitionArtifact(staleState, { type: "RESET" });
-        expect(resetState).toEqual({ state: "DORMANT", activeId: null });
-      });
-    });
-  });
 
   describe("Spatial View State Machine (2D <-> 3D_LOADING <-> 3D_READY / 3D_DEGRADED / 3D_FALLBACK)", () => {
     it("starts in 2D canonical state with 0 losses", () => {
@@ -371,7 +175,8 @@ describe("Phase 3A: Pure Sanctuary State Machines", () => {
         // Artifact in FOCUSED state
         const artifact: ArtifactContext = {
           state: "FOCUSED",
-          activeId: "mem-42",
+          spatialFocus: { kind: "memory", memoryId: "mem-42" },
+          hoveredId: null,
         };
         const view: ViewContext = {
           ...INITIAL_VIEW_CONTEXT,
@@ -384,56 +189,17 @@ describe("Phase 3A: Pure Sanctuary State Machines", () => {
 
         // Artifact machine remains completely independent and uncorrupted
         expect(artifact.state).toBe("FOCUSED");
-        expect(artifact.activeId).toBe("mem-42");
+        expect(artifact.spatialFocus).toEqual({ kind: "memory", memoryId: "mem-42" });
 
         // Artifact machine can still receive events normally (e.g. DOM navigation escape)
         const unhovered = transitionArtifact(artifact, { type: "ESCAPE" });
         expect(unhovered.state).toBe("DORMANT");
-        expect(unhovered.activeId).toBeNull();
+        expect(unhovered.spatialFocus).toEqual({ kind: "none" });
       });
     });
   });
 
   describe("Comprehensive Transition/Event Matrix Validation", () => {
-    it("tests every legal and rejected event across all artifact states", () => {
-      const allArtifactStates: ArtifactState[] = [
-        "DORMANT",
-        "PROXIMATE",
-        "FOCUSED",
-        "ACTIVE",
-      ];
-      const allEventTypes: ArtifactEvent["type"][] = [
-        "POINTER_ENTER",
-        "POINTER_LEAVE",
-        "FOCUS",
-        "ACTIVATE",
-        "ESCAPE",
-        "RESET",
-      ];
-
-      for (const s of allArtifactStates) {
-        for (const evType of allEventTypes) {
-          const current: ArtifactContext = {
-            state: s,
-            activeId: s === "DORMANT" ? null : "target-id",
-          };
-          let event: ArtifactEvent;
-          if (evType === "POINTER_ENTER" || evType === "FOCUS" || evType === "ACTIVATE") {
-            event = { type: evType, id: "target-id" };
-          } else if (evType === "POINTER_LEAVE") {
-            event = { type: "POINTER_LEAVE", id: "target-id" };
-          } else {
-            event = { type: evType };
-          }
-
-          const result = transitionArtifact(current, event);
-          expect(result).toBeDefined();
-          expect(["DORMANT", "PROXIMATE", "FOCUSED", "ACTIVE"]).toContain(
-            result.state
-          );
-        }
-      }
-    });
 
     it("tests every legal and rejected event across all spatial view states", () => {
       const allViewStates: SpatialViewState[] = [

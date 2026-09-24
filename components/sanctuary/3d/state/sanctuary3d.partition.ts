@@ -54,15 +54,10 @@ export function partitionSceneMemories(
   const activeChapterId = activeItem?.chapterId ?? null;
 
   for (const item of layoutMemories) {
-    const summary = memoryLookup.get(item.id);
     const spatialData: SpatialMemoryData = {
       id: item.id,
+      chapterId: item.chapterId ?? undefined,
       kind: item.kind,
-      title: summary?.title || item.title || "Memory",
-      description: summary?.description || null,
-      memoryDate: summary?.memoryDate || null,
-      emotion: summary?.emotion || null,
-      isFavorite: summary?.isFavorite || false,
       position: item.worldPosition,
     };
 

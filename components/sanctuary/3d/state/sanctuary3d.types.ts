@@ -20,11 +20,12 @@ export type SpatialViewState =
  * Artifact machine events
  */
 export type ArtifactEvent =
-  | { type: "POINTER_ENTER"; id: string }
+  | { type: "POINTER_ENTER"; id: string } // purely visual PROXIMATE state, doesn't change SpatialFocus
   | { type: "POINTER_LEAVE"; id: string }
-  | { type: "FOCUS"; id: string }
-  | { type: "ACTIVATE"; id: string }
-  | { type: "ESCAPE" }
+  | { type: "FOCUS_MEMORY"; id: string }
+  | { type: "FOCUS_CHAPTER"; chapterId: string }
+  | { type: "ACTIVATE_MEMORY"; id: string }
+  | { type: "ESCAPE"; parentChapterId?: string }
   | { type: "RESET" };
 
 export type QualityTier = "TIER_3" | "TIER_2" | "TIER_1" | "EXHAUSTED";
@@ -57,8 +58,19 @@ export type ViewEvent =
   | { type: "EXIT_TO_2D" }
   | { type: "RESET" };
 
+export type SpatialFocus =
+  | { kind: "none" }
+  | { kind: "chapter"; chapterId: string }
+  | { kind: "memory"; memoryId: string };
+
+export type CameraTarget =
+  | { kind: "archipelago" }
+  | { kind: "chapter"; chapterId: string }
+  | { kind: "memory"; memoryId: string };
+
 export interface ArtifactContext {
-  activeId: string | null;
+  spatialFocus: SpatialFocus;
+  hoveredId: string | null;
   state: ArtifactState;
 }
 
@@ -73,15 +85,12 @@ export interface ViewContext {
 /**
  * Safe domain projection for 3D presentation
  * Contains NO storageKey, NO signed URLs, NO credentials, NO raw DB rows
+ * Strictly minimized for rendering/interaction requirements.
  */
 export interface SpatialMemoryData {
   id: string;
+  chapterId?: string; // added to support Chapter Relationship Integrity
   kind: "standard" | "letter" | "milestone" | "future";
-  title: string;
-  description: string | null;
-  memoryDate: string | null;
-  emotion: string | null;
-  isFavorite: boolean;
   position: [number, number, number];
 }
 

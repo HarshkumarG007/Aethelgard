@@ -5,34 +5,53 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 
 interface CameraRigProps {
-  activePosition?: [number, number, number] | null;
+  target: { kind: string; position: [number, number, number] };
   reducedMotion: boolean;
 }
 
 const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 9, 20);
 const DEFAULT_LOOK_AT = new THREE.Vector3(0, 0, 0);
+const CAMERA_SAFE_BOUNDS_R = 55;
 
-export function CameraRig({ activePosition, reducedMotion }: CameraRigProps) {
+export function CameraRig({ target, reducedMotion }: CameraRigProps) {
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
 
-  const targetCameraPos = useMemo(() => {
-    if (!activePosition) {
-      return DEFAULT_CAMERA_POS;
-    }
-    const [x, y, z] = activePosition;
-    // Position camera facing the artifact slightly elevated
-    const dir = new THREE.Vector3(x, 0, z).normalize();
-    if (dir.lengthSq() < 0.001) dir.set(0, 0, 1);
-    return new THREE.Vector3(x + dir.x * 4.5, y + 1.2, z + dir.z * 4.5);
-  }, [activePosition]);
-
   const targetLookAt = useMemo(() => {
-    if (!activePosition) {
+    if (target.kind === "archipelago") {
       return DEFAULT_LOOK_AT;
     }
-    const [x, y, z] = activePosition;
-    return new THREE.Vector3(x, y, z);
-  }, [activePosition]);
+    return new THREE.Vector3(...target.position);
+  }, [target]);
+
+  const targetCameraPos = useMemo(() => {
+    if (target.kind === "archipelago") {
+      return DEFAULT_CAMERA_POS;
+    }
+
+    const [x, y, z] = target.position;
+    const dir = new THREE.Vector3(x, 0, z).normalize();
+    if (dir.lengthSq() < 0.001) dir.set(0, 0, 1);
+
+    const offsetMagnitude = target.kind === "chapter" ? 14 : 4.5;
+    const heightOffset = target.kind === "chapter" ? 6 : 1.2;
+
+    const proposedX = x + dir.x * offsetMagnitude;
+    const proposedZ = z + dir.z * offsetMagnitude;
+
+    // Clamp camera position to SAFE_BOUNDS
+    const distSq = proposedX * proposedX + proposedZ * proposedZ;
+    let finalX = proposedX;
+    let finalZ = proposedZ;
+    
+    if (distSq > CAMERA_SAFE_BOUNDS_R * CAMERA_SAFE_BOUNDS_R) {
+      const dist = Math.sqrt(distSq);
+      const scale = CAMERA_SAFE_BOUNDS_R / dist;
+      finalX *= scale;
+      finalZ *= scale;
+    }
+
+    return new THREE.Vector3(finalX, y + heightOffset, finalZ);
+  }, [target]);
 
   useFrame((state, delta) => {
     const cam = state.camera;

@@ -11,19 +11,32 @@ interface MemoryArtifactProps {
   memory: SpatialMemoryData;
   reducedMotion: boolean;
   onNavigate: (id: string) => void;
+  globalUniforms: { uTime: { value: number } };
 }
 
 export function MemoryArtifact({
   memory,
   reducedMotion,
   onNavigate,
+  globalUniforms,
 }: MemoryArtifactProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { artifact, quality, hoverEnter, hoverLeave, focusArtifact, activateArtifact } =
+  const { artifact, quality, hoverEnter, hoverLeave, focusMemory, activateMemory } =
     useSanctuary3DStore();
 
-  const isCurrent = artifact.activeId === memory.id;
-  const artifactState = isCurrent ? artifact.state : "DORMANT";
+  // Determine if this memory is currently the target of spatial focus
+  const isCurrent =
+    artifact.spatialFocus.kind === "memory" &&
+    artifact.spatialFocus.memoryId === memory.id;
+  const isHovered = artifact.hoveredId === memory.id;
+
+  const artifactState = isCurrent
+    ? artifact.state === "ACTIVE"
+      ? "ACTIVE"
+      : "FOCUSED"
+    : isHovered && artifact.state === "DORMANT"
+      ? "PROXIMATE"
+      : "DORMANT";
 
   // Deterministic procedural geometry selection by kind
   const geometry = useMemo(() => {
@@ -60,19 +73,18 @@ export function MemoryArtifact({
   }, [memory.kind]);
 
   // Compute state-dependent presentation values declaratively
-  const { emissiveIntensity, opacity, targetScale } = useMemo(() => {
-    switch (artifactState) {
-      case "ACTIVE":
-        return { emissiveIntensity: 0.9, opacity: 1.0, targetScale: 1.25 };
-      case "FOCUSED":
-        return { emissiveIntensity: 0.6, opacity: 1.0, targetScale: 1.15 };
-      case "PROXIMATE":
-        return { emissiveIntensity: 0.35, opacity: 0.95, targetScale: 1.08 };
-      case "DORMANT":
-      default:
-        return { emissiveIntensity: 0.08, opacity: 0.85, targetScale: 1.0 };
-    }
-  }, [artifactState]);
+  const presentation =
+    artifactState === "ACTIVE"
+      ? { emissiveIntensity: 0.9, opacity: 1.0, targetScale: 1.25 }
+      : artifactState === "FOCUSED"
+        ? { emissiveIntensity: 0.6, opacity: 1.0, targetScale: 1.15 }
+        : artifactState === "PROXIMATE"
+          ? { emissiveIntensity: 0.35, opacity: 0.95, targetScale: 1.08 }
+          : { emissiveIntensity: 0.08, opacity: 0.85, targetScale: 1.0 };
+  const { emissiveIntensity, opacity, targetScale } = presentation;
+
+  // Seed offset for gentle asynchronous ambient animation
+  const seedOffset = (memory.position[0] * 13 + memory.position[2] * 7) % 100;
 
   // Dual-path material (GLSL shader with Fresnel vs MeshStandardMaterial fallback)
   const material = useMemo(() => {
@@ -82,53 +94,51 @@ export function MemoryArtifact({
       opacity,
       isReducedMotion: reducedMotion,
       shaderProfile: quality.shaderProfile,
+      globalUniforms,
+      seedOffset,
     });
-  }, [baseColor, emissiveIntensity, opacity, reducedMotion, quality.shaderProfile]);
+  }, [baseColor, emissiveIntensity, opacity, reducedMotion, quality.shaderProfile, globalUniforms, seedOffset]);
 
-  // Seed offset for gentle asynchronous ambient animation
-  const seedOffset = useMemo(
-    () => (memory.position[0] * 13 + memory.position[2] * 7) % 100,
-    [memory.position]
-  );
-
-  // Animation loop with strict respect for prefers-reduced-motion and zero per-frame allocations
+  // Animation loop with strict respect for prefers-reduced-motion and zero per-frame allocations.
+  // Floating levitation and rotation are handled entirely in the vertex shader.
+  // This loop solely performs scalar damping for the uScale uniform / mesh scale.
   useFrame((_, delta) => {
-    if (!meshRef.current) return;
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    const mat = mesh.material;
 
     if (reducedMotion) {
-      // Instant scale change, absolutely zero continuous floating or rotation
-      meshRef.current.scale.set(targetScale, targetScale, targetScale);
-      meshRef.current.position.set(
-        memory.position[0],
-        memory.position[1],
-        memory.position[2]
-      );
-      meshRef.current.rotation.set(0, 0, 0);
+      // Instant scale change, zero interpolation
+      if (mat instanceof THREE.ShaderMaterial && mat.uniforms.uScale) {
+        mat.uniforms.uScale.value = targetScale;
+      } else {
+        mesh.scale.set(targetScale, targetScale, targetScale);
+      }
       return;
     }
 
-    // Smooth subtle scale damping
-    const currentScale = meshRef.current.scale.x;
-    const nextScale = THREE.MathUtils.damp(
-      currentScale,
-      targetScale,
-      8,
-      delta
-    );
-    meshRef.current.scale.set(nextScale, nextScale, nextScale);
-
-    // Subtle ambient levitation and slow rotation
-    const elapsed = performance.now() * 0.001 + seedOffset;
-    const floatY = Math.sin(elapsed * 1.2) * 0.08;
-    meshRef.current.position.y = memory.position[1] + floatY;
-
-    // Slow ambient rotation
-    meshRef.current.rotation.y += delta * 0.2;
-
-    // Update GLSL uniform on mesh material if custom shader is active
-    const activeMat = meshRef.current.material;
-    if (activeMat instanceof THREE.ShaderMaterial && activeMat.uniforms.uTime) {
-      activeMat.uniforms.uTime.value += delta;
+    if (mat instanceof THREE.ShaderMaterial && mat.uniforms.uScale) {
+      const currentScale = mat.uniforms.uScale.value;
+      if (Math.abs(currentScale - targetScale) > 0.001) {
+        mat.uniforms.uScale.value = THREE.MathUtils.damp(
+          currentScale,
+          targetScale,
+          8,
+          delta
+        );
+      }
+    } else {
+      const currentScale = mesh.scale.x;
+      if (Math.abs(currentScale - targetScale) > 0.001) {
+        const nextScale = THREE.MathUtils.damp(
+          currentScale,
+          targetScale,
+          8,
+          delta
+        );
+        mesh.scale.set(nextScale, nextScale, nextScale);
+      }
     }
   });
 
@@ -140,6 +150,9 @@ export function MemoryArtifact({
     };
   }, [geometry, material]);
 
+  const TOUCH_MOVE_CANCEL_THRESHOLD_PX = 100;
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+
   const handlePointerOver = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     hoverEnter(memory.id);
@@ -150,10 +163,27 @@ export function MemoryArtifact({
     hoverLeave(memory.id);
   };
 
-  const handleClick = (e: { stopPropagation: () => void }) => {
+  const handlePointerDown = (e: any) => {
     e.stopPropagation();
-    focusArtifact(memory.id);
-    activateArtifact(memory.id);
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: any) => {
+    e.stopPropagation();
+    if (!pointerDownPos.current) return;
+
+    const dx = e.clientX - pointerDownPos.current.x;
+    const dy = e.clientY - pointerDownPos.current.y;
+    const distSq = dx * dx + dy * dy;
+
+    pointerDownPos.current = null;
+
+    if (distSq > TOUCH_MOVE_CANCEL_THRESHOLD_PX) {
+      return;
+    }
+
+    focusMemory(memory.id);
+    activateMemory(memory.id);
     onNavigate(memory.id);
   };
 
@@ -165,7 +195,8 @@ export function MemoryArtifact({
       material={material}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
-      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
     />
   );
 }
