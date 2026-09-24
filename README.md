@@ -34,14 +34,15 @@
    - [Phase 6: Hardening, Security Matrix & Disaster Recovery](#phase-6-hardening-security-matrix--disaster-recovery)
    - [Phase 7: In-Browser Studio, Soundscape, Voice Memos & PWA](#phase-7-in-browser-studio-soundscape-voice-memos--pwa)
 5. [Engineering Decisions, Challenges & Solutions](#-engineering-decisions-challenges--solutions)
-6. [Feature Walkthrough (Every Chamber Explained)](#-feature-walkthrough)
-   - [The Upper Archive (`/`)](#1-the-upper-archive-)
-   - [The Chronicle Timeline (`/timeline`)](#2-the-chronicle-timeline-timeline)
-   - [The Correspondence & Voice Memos (`/letters`)](#3-the-correspondence--voice-memos-letters)
-   - [The Vault & Deep View (`/archive` & `/memory/[id]`)](#4-the-vault--deep-view-archive--memoryid)
-   - [The Horizon Promises (`/horizon`)](#5-the-horizon-promises-horizon)
-   - [Atmospheric Soundscape & Waveforms](#6-atmospheric-soundscape--waveforms)
-   - [In-Browser Creator & Refine/Delete Studio](#7-in-browser-creator--refinedelete-studio)
+6. [Feature Walkthrough & Visual Sanctuary Gallery](#-feature-walkthrough--visual-sanctuary-gallery)
+   - [Threshold Portal (`/auth`)](#1-threshold-authentication-portal-auth)
+   - [The Upper Archive (`/`)](#2-the-upper-archive-)
+   - [Atmospheric Soundscape & Waveforms](#3-atmospheric-soundscape--procedural-drone)
+   - [In-Browser Creator & Memory Composer](#4-in-browser-memory-composer-inscribe)
+   - [The Correspondence & Voice Memos (`/letters`)](#5-the-correspondence--spoken-letters-letters)
+   - [The Vault (`/archive`)](#6-the-vault--searchable-filter-archive-archive)
+   - [Memory Deep View & Refine/Delete Studio (`/memory/[id]`)](#7-memory-deep-view--refineremove-controls-memoryid)
+   - [The Horizon Promises (`/horizon`)](#8-the-horizon-promises-horizon)
 7. [Comprehensive Documentation Directory](#-comprehensive-documentation-directory)
 8. [How to Run This Project (Local Development Guide)](#-how-to-run-this-project)
 9. [Production Deployment Guide (Turnkey Operations)](#-production-deployment-guide)
@@ -244,57 +245,246 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3A-3C ──► Phas
 
 ---
 
-## 🏛️ Feature Walkthrough
+## 🏛️ Feature Walkthrough & Visual Sanctuary Gallery
 
-### 1. The Upper Archive (`/`)
-The sanctuary's entryway. Displays the total preserved artifacts count, active chronicle timeline progress, and direct links to emotional chambers.
+Every room in Aethelgard has been designed with extreme care, combining timeless parchment typography, dark celestial aesthetics, and tactile user controls. Below is a tour of the sanctuary chambers with actual interface captures from the living application.
+
+---
+
+### 1. Threshold Authentication Portal (`/auth`)
+
+The portal threshold is the sole gateway into Aethelgard. Void of tracking cookies, third-party analytics, or intrusive form badges, the screen features an ethereal ambient glow pulsing softly in the void.
+
+![Threshold Authentication Portal](docs/assets/screenshots/01_threshold_portal.png)
+
+```text
+       ┌────────────────────────────────────────────────────────┐
+       │                       Aethelgard                       │
+       │                    PRIVATE SANCTUARY                   │
+       │                                                        │
+       │              [     Enter passphrase     ]              │
+       │                                                        │
+       │                Press Enter to unlock                   │
+       └────────────────────────────────────────────────────────┘
+```
+
+- **Argon2id Verification:** Verifies submitted passphrases server-side against salted Argon2id hashes with memory-hard parameters ($m=65536, t=3, p=4$).
+- **Timing Equalization:** When invalid credentials or unknown accounts are provided, the server executes dummy cryptographic calculations to maintain constant response times and defeat timing attacks.
+- **Layered Rate Limiting:** Enforces independent rate limit buckets across IP address, account identity, and a global circuit breaker.
+
+---
+
+### 2. The Upper Archive (`/`)
+
+The sanctuary's entryway and high vantage point. Provides an overarching view of preserved artifacts, direct portal switches into emotional chambers, and semantic accessibility parity index.
+
+![The Upper Archive Overview](docs/assets/screenshots/02_upper_archive_overview.png)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│  AETHELGARD                        [Sound: Playing] [? Help] [Depart]  │
-│  The Upper Archive                                                     │
+│  Aethelgard    [ADMIN]    Overview  Timeline  Letters  Archive  Horizon│
+│  The Upper Archive: Where memories have weight, and love has geography.│
 ├────────────────────────────────────────────────────────────────────────┤
-│  Chronicle Metrics: 10 Preserved Artifacts • 4 Narrative Chapters      │
+│  Sanctuary Viewpoint:  [✦ ENTER 3D SANCTUARY]                          │
 │                                                                        │
-│  [ The Chronicle ]       [ Correspondence ]        [ The Vault ]       │
-│  Vertical timeline of     Manuscripts, letters,     Searchable archive │
-│  milestones & promises    and spoken voice notes    with emotion tags  │
+│  Spatial Directory • Semantic Parity Index (Accessible 2D Core)       │
+│  ┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────┐ │
+│  │ MILESTONE      Wonder │ │ LETTER            Joy │ │ STANDARD      │ │
+│  │ Starlight Observatory │ │ Note Behind Astrolabe │ │ Lower Library │ │
+│  │ 2023-04-12          ★ │ │ 2023-06-01          ★ │ │ 2023-07-15    │ │
+│  └───────────────────────┘ └───────────────────────┘ └───────────────┘ │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. The Chronicle Timeline (`/timeline`)
-A vertical temporal spine that plots every memory across historical dates. Milestones are marked with distinct purple banners, while promise artifacts point toward the future.
+- **Dual Viewport Switch:** Seamlessly toggle between the canonical accessible 2D directory and the 3D celestial archipelago canvas.
+- **Semantic Parity Index:** Direct keyboard accessible cards with emotion badges (*Wonder, Joy, Peace, Nostalgia, Longing*), chapter indicators, and favorite bookmarks.
+- **Role Awareness:** Administrators receive amber accent controls and the `ADMIN` indicator, granting live curation powers.
 
-### 3. The Correspondence & Voice Memos (`/letters`)
-A quiet reading room dedicated to written letters and spoken voice notes:
-- **Manuscript Reader:** Select from archived letters with parchment typography and intimate date stamps.
-- **Spoken Letter Recorder:** Click **Record**, speak your heart, and watch the **live golden waveform canvas** react to the timbre of your voice. Stop, name, and seal the voice memo directly into the chronicle.
+---
+
+### 3. Atmospheric Soundscape & Procedural Drone
+
+The soundscape controller anchors contemplative reading by generating an organic, infinite ambient chord directly inside the user's browser.
+
+![Atmospheric Soundscape Popover](docs/assets/screenshots/03_ambient_soundscape.png)
+
+```text
+               ┌───────────────────────────────────────┐
+               │ Sanctuary Atmosphere           [Mute] │
+               │ Procedural Celestial Drone            │
+               │ ┌───────────────────────────────────┐ │
+               │ │  ▂ ▃ ▅ ▆ ▇ ▆ ▅ ▃ ▂   ▂ ▃ ▅ ▇ ▆ ▃  │ │ Live Waveform
+               │ └───────────────────────────────────┘ │
+               │ Volume                            25% │
+               │ ━━━━━━━●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+               │ Harmonized in resonant fifths to      │
+               │ anchor contemplative presence.        │
+               └───────────────────────────────────────┘
+```
+
+- **0 KB Network Audio:** No heavy audio streaming. Three Web Audio API oscillators tuned in root, fifth, and octave notes ($110\text{ Hz}, 164.81\text{ Hz}, 220\text{ Hz}$) pass through resonant biquad lowpass filters.
+- **Real-Time Waveform Visualizer:** Animated HTML5 canvas spectrum displays the harmonic breath of the synthesized frequencies.
+- **Dynamic Gain Envelope:** Seamlessly ramps audio up and down over 1.2 seconds, preventing abrasive clicks or pop artifacts.
+
+---
+
+### 4. In-Browser Memory Composer (`+ Inscribe`)
+
+The full-featured memory creation studio allows the sanctuary keeper to preserve new memories, letters, or future promises without touching raw database consoles.
+
+![Sanctuary Inscribe & Memory Composer](docs/assets/screenshots/04_memory_composer_modal.png)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│  🎙️ Record Spoken Letter                                               │
-│  Recording 00:42  [ ||||||||||||||||| ] Live Waveform   [ Stop ]       │
+│  Inscribe Sanctuary Artifact                                      [✕]  │
+│  Add a new memory, letter, or milestone to the eternal archive.        │
+├────────────────────────────────────────────────────────────────────────┤
+│  CHAMBER:  [ Standard ]  [ Letter ]  [ Milestone ]  [ Horizon ]        │
+│                                                                        │
+│  Artifact Title *                       Date                           │
+│  [ The Starlight Observatory...      ]  [ 2026-09-24 📅 ]              │
+│                                                                        │
+│  Island Chapter                         Emotional Essence              │
+│  [ Chapter I: The Starlight Obs. ▼ ]   [ Wonder                     ▼ ]│
+│                                                                        │
+│  Manuscript Text / Memory Prose                                        │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │ Write the intimate words, details, or dialogue of this memory...  │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+│  Attach Photograph or Artifact (Optional)                              │
+│  ┌ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ┐ │
+│  │      ✦ Drag and drop a photo or manuscript, or browse             │ │
+│  └ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ┘ │
+│  ☑ Mark as Sanctuary Favorite                                          │
+│                                           [ Cancel ] [ Seal Artifact ] │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4. The Vault & Deep View (`/archive` & `/memory/[id]`)
-- **The Vault:** Filter memories by emotional current (*Joy, Nostalgia, Longing, Peace, Excitement, Gratitude, Wonder*) or search across titles and narratives.
-- **Chronological Deep View:** Read full memory stories, view high-definition image galleries, listen to voice recordings with acoustic waveform scrubbers, and navigate seamlessly to Earlier or Later memories.
+- **Chamber Routing:** Instantly categorizes artifacts into Standard memories, Letters, Pivotal milestones, or Horizon commitments.
+- **Direct Presigned Upload:** Photos and scanned parchments are uploaded directly from the browser to Cloudflare R2 via presigned `PUT` URLs without passing binary payloads through the web server.
+- **Automatic Client Derivatives:** Generates progressive WebP variants and responsive thumbnails automatically via Sharp server-side processing.
 
-### 5. The Horizon Promises (`/horizon`)
-A chamber reserved for future commitments, goals, and promises sealed between two souls.
+---
 
-### 6. Atmospheric Soundscape & Waveforms
-Click the **Sound / Ambient** button in the top navigation bar to open the atmosphere popover:
-- **Begin / Mute:** Start or silence the procedural celestial drone.
-- **Volume Slider:** Adjust ambient volume from whisper-quiet to rich resonance.
-- **Real-time Spectrum Visualizer:** Watch the animated spectrum bars reflect the harmonics of the breathing drone.
+### 5. The Correspondence & Spoken Letters (`/letters`)
 
-### 7. In-Browser Creator & Refine/Delete Studio
-Admin users have full chronicle powers:
-- **Inscribe (`+ Inscribe` button):** Inscribe a new memory, letter, or milestone with drag-and-drop media attachment.
-- **Refine (`✎ Refine` button on Deep View):** Modify existing narratives, locations, or chapter associations.
-- **Remove (`✕ Remove` button on Deep View):** Soft-delete an artifact into the archival tomb with a confirmation dialog.
+A quiet sanctuary chamber designed like an antique writing desk. Displays written letters in warm, handwritten parchment typography alongside audio recordings.
+
+![The Correspondence Chamber](docs/assets/screenshots/05_correspondence_chamber.png)
+
+```text
+┌───────────────────────────────┬────────────────────────────────────────┐
+│ Manuscripts         3 letters │ Typography: [Handwriting (Caveat)]     │
+│ ┌───────────────────────────┐ │                                        │
+│ │ 🎙️ Record Spoken Letter   │ │             1 JUNE 2023                │
+│ │ Leave voice memo [Record] │ │  Note Discovered Behind the Astrolabe  │
+│ └───────────────────────────┘ │  Inscribed in: Chapter I               │
+│ ┌───────────────────────────┐ │                                        │
+│ │ 1 Jun 2023              ★ │ │ "Dearest traveler,                     │
+│ │ Behind the Astrolabe      │ │                                        │
+│ └───────────────────────────┘ │  If you find this parchment, know that │
+│ ┌───────────────────────────┐ │  the third gear of the armillary sphere│
+│ │ 30 Oct 2023             ★ │ │  always sticks at the vernal equinox.  │
+│ │ Granite Lighthouse        │ │  Do not force it; simply warm the      │
+│ └───────────────────────────┘ │  brass with your palm.                 │
+│ ┌───────────────────────────┐ │                                        │
+│ │ 22 Sept 2024              │ │  Always,                               │
+│ │ Autumn Equinox            │ │  The Archivist"                        │
+│ └───────────────────────────┘ │                                        │
+└───────────────────────────────┴────────────────────────────────────────┘
+```
+
+- **Tactile Typography:** Toggle between fluid handwriting (*Caveat*) and classical serif (*Cinzel / Cormorant Garamond*) reading modes.
+- **In-Browser Voice Memos:** Record personal audio reflections using the HTML5 MediaRecorder API with real-time waveform input visualization.
+- **Acoustic Audio Playback:** Listen to voice recordings with dedicated acoustic scrubbers and play/pause controls.
+
+---
+
+### 6. The Vault — Searchable Filter Archive (`/archive`)
+
+A high-density search and discovery terminal built for effortless retrieval across years of relationship history.
+
+![The Memory Vault Archive](docs/assets/screenshots/06_memory_vault.png)
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│  The Vault • Full Archive                                              │
+│  Explore, filter, and discover across every recorded memory artifact.  │
+├────────────────────────────────────────────────────────────────────────┤
+│  SEARCH MEMORIES                                                       │
+│  [ Search by title, reflection, or location...                      ]  │
+│                                                                        │
+│  Chapter           Artifact Kind      Emotion          Ordering        │
+│  [ All Chapters ▼] [ All Kinds     ▼] [ All Emotions ▼][ Newest First ▼]│
+│                                                                        │
+│  ☑ Favorites only (★)                             Showing 10 memories  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Multi-Dimensional Filtering:** Search across textual prose, narrative chapters, artifact kinds (*milestone, letter, future, standard*), and emotional currents.
+- **Deterministic Sort Orders:** Sort memories chronologically forward, backward, or by alphabetical chronicle order.
+- **Real-time Query Debounce:** Instant responsive filtering with 0 ms perceptible lag.
+
+---
+
+### 7. Memory Deep View & Refine/Remove Controls (`/memory/[id]`)
+
+The intimate reading and editing canvas for individual memory artifacts. Provides complete chronological navigation and in-place administrative controls.
+
+![Memory Deep View with Refine & Remove Controls](docs/assets/screenshots/07_memory_deepview.png)
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│  [← Return]                           [✎ Refine] [✕ Remove] [← Earlier]│
+├────────────────────────────────────────────────────────────────────────┤
+│  [ FUTURE ] [ Wonder ]                    Wednesday, 31 December 2025  │
+│                                                                        │
+│  Promise: Restoring the Ancient Star Chart                             │
+│  ● Inscribed in: Chapter IV: Beyond the Amber Spire                    │
+│                                                                        │
+│  "Fictional promise: Reassemble the celestial globe of the lost        │
+│   archipelago. An unwritten commitment to gather the remaining copper   │
+│   meridian rings and align the constellations once more in the archive."│
+│                                                                        │
+│  Artifact ID: 049e9c57...                          Sanctuary Record    │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Temporal Navigation:** Quickly jump to the immediately preceding (`← Earlier`) or subsequent (`Later →`) milestone in chronicle history.
+- **In-Place Refine (`✎ Refine`):** Instantly modifies title, date, chapter, emotional essence, or written prose within an interactive edit modal.
+- **Archival Soft Deletion (`✕ Remove`):** Safeguards data integrity by executing soft deletions (`deletedAt = now()`), preserving archival recovery options while removing the memory from active visitor views.
+
+---
+
+### 8. The Horizon Promises (`/horizon`)
+
+The forward-facing sanctuary chamber dedicated to days yet to unfold—unwritten dreams, future aspirations, and shared commitments.
+
+![The Horizon Promises](docs/assets/screenshots/08_horizon_promises.png)
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│  THE HORIZON • FACING FORWARD                                          │
+│  The Horizon: Where love has geography into the future.                │
+├────────────────────────────────────────────────────────────────────────┤
+│  ✦ TOWARD DAYS AHEAD                                                   │
+│  Unwritten Pages & Future Promises                                     │
+│  The sanctuary does not close in memory, but faces forward.            │
+│                                                                        │
+│  Committed Aspirations                                       2 promises│
+│  ┌──────────────────────────────────┐ ┌──────────────────────────────┐ │
+│  │ FUTURE COMMITMENT     21 Jun 2025│ │ FUTURE COMMITMENT 31 Dec 2025│ │
+│  │ Promise: Solstice Beacon Ascent  │ │ Promise: Ancient Star Chart  │ │
+│  │ Climb the 300 spiral steps       │ │ Reassemble celestial globe   │ │
+│  └──────────────────────────────────┘ └──────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Forward Temporal Orientation:** Only displays artifacts categorized as `future` promises.
+- **Commitment Milestones:** Tracks target fulfillment dates and personal commitments across upcoming years.
+- **Deep Emerald Atmosphere:** Custom color palette reflecting dawn, growth, and upcoming journeys.
+
 
 ---
 

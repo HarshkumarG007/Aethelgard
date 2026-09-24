@@ -20,14 +20,25 @@ export function extractSessionToken(request: Request): string | null {
   const cookieHeader = request.headers.get("cookie");
   if (!cookieHeader) return null;
 
-  const match = cookieHeader
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${AUTH_CONSTANTS.SESSION_COOKIE_NAME}=`));
+  const cookieNames = [
+    AUTH_CONSTANTS.SESSION_COOKIE_NAME,
+    "aethelgard_session",
+    "session",
+  ];
 
-  if (!match) return null;
-  const token = match.substring(`${AUTH_CONSTANTS.SESSION_COOKIE_NAME}=`.length);
-  return token || null;
+  for (const name of cookieNames) {
+    const match = cookieHeader
+      .split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith(`${name}=`));
+
+    if (match) {
+      const token = match.substring(`${name}=`.length);
+      if (token) return token;
+    }
+  }
+
+  return null;
 }
 
 /**

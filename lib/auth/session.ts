@@ -153,10 +153,11 @@ export async function rotateSession(
  * Must have: Secure, Path=/, HttpOnly, SameSite=Strict, and NO Domain attribute.
  */
 export function getSessionCookieOptions() {
+  const isDev = process.env.NODE_ENV === "development";
   return {
-    name: AUTH_CONSTANTS.SESSION_COOKIE_NAME,
+    name: isDev ? "aethelgard_session" : AUTH_CONSTANTS.SESSION_COOKIE_NAME,
     httpOnly: true,
-    secure: true,
+    secure: !isDev,
     sameSite: "strict" as const,
     path: "/",
     maxAge: Math.floor(AUTH_CONSTANTS.SESSION_ABSOLUTE_LIFETIME_MS / 1000),
@@ -164,13 +165,29 @@ export function getSessionCookieOptions() {
 }
 
 export function getClearSessionCookieOptions() {
+  const isDev = process.env.NODE_ENV === "development";
   return {
-    name: AUTH_CONSTANTS.SESSION_COOKIE_NAME,
+    name: isDev ? "aethelgard_session" : AUTH_CONSTANTS.SESSION_COOKIE_NAME,
     httpOnly: true,
-    secure: true,
+    secure: !isDev,
     sameSite: "strict" as const,
     path: "/",
     maxAge: 0,
     expires: new Date(0),
   };
 }
+
+/**
+ * Extracts session token from cookie store, checking production __Host-session,
+ * dev fallback aethelgard_session, and legacy session names.
+ */
+export function getSessionTokenFromCookies(cookieStore: {
+  get(name: string): { value: string } | undefined;
+}): string | null {
+  const cookie =
+    cookieStore.get(AUTH_CONSTANTS.SESSION_COOKIE_NAME) ||
+    cookieStore.get("aethelgard_session") ||
+    cookieStore.get("session");
+  return cookie?.value ?? null;
+}
+

@@ -3,7 +3,10 @@ import { getSecurityHeaders } from "./lib/security/headers";
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get("__Host-session");
+  const sessionCookie =
+    request.cookies.get("__Host-session") ||
+    request.cookies.get("aethelgard_session") ||
+    request.cookies.get("session");
 
   // Coarse route protection: unauthenticated visits to protected sections redirect to /auth
   const isProtectedPath =

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { AUTH_CONSTANTS } from "@/lib/auth/types";
-import { validateSession } from "@/lib/auth/session";
+import { validateSession, getSessionTokenFromCookies } from "@/lib/auth/session";
 import { getMemories, type MemorySummary } from "@/lib/data/memories";
 import { EmptyState } from "@/components/sanctuary/EmptyState";
 
@@ -22,8 +22,8 @@ const EMOTION_COLORS: Record<string, string> = {
 
 export default async function TimelinePage() {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(AUTH_CONSTANTS.SESSION_COOKIE_NAME);
-  const validation = await validateSession(sessionCookie!.value);
+  const token = getSessionTokenFromCookies(cookieStore);
+  const validation = token ? await validateSession(token) : { valid: false as const };
   const user = validation.valid ? validation.user : null;
 
   if (!user) return null;

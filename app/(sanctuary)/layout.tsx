@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AUTH_CONSTANTS } from "@/lib/auth/types";
-import { validateSession } from "@/lib/auth/session";
+import { validateSession, getSessionTokenFromCookies } from "@/lib/auth/session";
 import { SanctuaryHeader } from "@/components/sanctuary/SanctuaryHeader";
 
 export default async function SanctuaryLayout({
@@ -10,13 +10,13 @@ export default async function SanctuaryLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(AUTH_CONSTANTS.SESSION_COOKIE_NAME);
+  const token = getSessionTokenFromCookies(cookieStore);
 
-  if (!sessionCookie?.value) {
+  if (!token) {
     redirect("/auth");
   }
 
-  const validation = await validateSession(sessionCookie.value);
+  const validation = await validateSession(token);
   if (!validation.valid) {
     redirect("/auth");
   }

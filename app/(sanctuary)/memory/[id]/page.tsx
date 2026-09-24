@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { AUTH_CONSTANTS } from "@/lib/auth/types";
-import { validateSession } from "@/lib/auth/session";
+import { validateSession, getSessionTokenFromCookies } from "@/lib/auth/session";
 import { getMemoryById, getAdjacentMemoryIds } from "@/lib/data/memories";
 import { memoryIdParamSchema } from "@/lib/validation/memories";
 import { MemoryDeepView } from "@/components/sanctuary/MemoryDeepView";
@@ -18,12 +18,12 @@ export async function generateMetadata({ params }: MemoryPageProps) {
   }
 
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(AUTH_CONSTANTS.SESSION_COOKIE_NAME);
-  if (!sessionCookie?.value) {
+  const token = getSessionTokenFromCookies(cookieStore);
+  if (!token) {
     return { title: "Aethelgard Sanctuary" };
   }
 
-  const validation = await validateSession(sessionCookie.value);
+  const validation = await validateSession(token);
   if (!validation.valid) {
     return { title: "Aethelgard Sanctuary" };
   }
@@ -48,12 +48,12 @@ export default async function MemoryPage({ params }: MemoryPageProps) {
   }
 
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(AUTH_CONSTANTS.SESSION_COOKIE_NAME);
-  if (!sessionCookie?.value) {
+  const token = getSessionTokenFromCookies(cookieStore);
+  if (!token) {
     notFound();
   }
 
-  const validation = await validateSession(sessionCookie.value);
+  const validation = await validateSession(token);
   if (!validation.valid) {
     notFound();
   }
