@@ -42,8 +42,8 @@ All 18 rows of the Security Test Matrix were codified into `tests/unit/hardening
   - Passphrase hashes are verified using Argon2id. Passphrase rotation is executed by inserting the new hash in `users` and invalidating active rows in `sessions`.
   - Storage credentials (R2 Access Keys) are rotated using dual-key overlap in Cloudflare R2 before updating production environment variables.
 
-### 4. Disaster Recovery & Backup Gate (§14)
-- Automated verification implemented in `scripts/backup-restore.ts`.
-- Extracts full cryptographic snapshot with SHA-256 integrity hash.
-- Verified RTO: < 1 second (target: < 15 minutes).
-- Verified RPO: < 1 minute (target: < 1 hour).
+### 4. Disaster Recovery & Backup Integrity (§14)
+- Logical database snapshot extraction implemented in `scripts/backup-restore.ts`.
+- Encrypted using authenticated `AES-256-GCM` with a 16-byte random IV and 128-bit authentication tag to prevent sensitive chronicle leakage at rest.
+- Referential integrity tree and data shapes verified across users, chapters, memories, and assets.
+- Operational database disaster recovery (RTO < 15 min, RPO < 1 hour) is defined and executed via the documented PostgreSQL `pg_dump` and `pg_restore` runbook (`docs/DEPLOYMENT_GUIDE.md` §6).
