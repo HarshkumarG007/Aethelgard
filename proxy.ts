@@ -1,6 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSecurityHeaders } from "./lib/security/headers";
 
+/**
+ * Aethelgard Proxy (Next.js 16 Request Interceptor)
+ * 
+ * Architectural Role:
+ * - Edge Routing Gate: Performs early, coarse-grained redirection of unauthenticated
+ *   browser requests before hitting React Server Component layout rendering trees.
+ * - Security Boundary Distinction: This proxy is a fast UX routing optimization, NOT
+ *   the ultimate authorization boundary. Per 02_SECURITY_PRIVACY_CONTRACT.md, every
+ *   protected API route handler and server action independently executes cryptographic
+ *   session validation (`authenticateRequest`) and strict database resource authorization.
+ * - Uniform Security Headers: Applies strict baseline security headers and CSP to all responses.
+ */
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const sessionCookie =

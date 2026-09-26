@@ -592,7 +592,7 @@ Use [`docker-compose.prod.yml`](docker-compose.prod.yml) featuring an integrated
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
-*For complete step-by-step instructions, CORS policies, and secret generation, read the [Production Deployment Operations Manual](docs/DEPLOYMENT_GUIDE.md).*
+*For complete step-by-step instructions, CORS policies, and secret generation, read the [Production Deployment Operations Manual](docs/DEPLOYMENT_GUIDE.md) and the [Security Architecture & Threat Model](docs/THREAT_MODEL.md).*
 
 ---
 

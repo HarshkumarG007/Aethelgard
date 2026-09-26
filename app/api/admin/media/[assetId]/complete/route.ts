@@ -5,6 +5,7 @@ import { memoryAssets } from "@/lib/db/schema";
 import { authenticateRequest, createAuthErrorResponse } from "@/lib/auth/guard";
 import { validateOrigin } from "@/lib/security/origin";
 import { validateMagicBytes } from "@/lib/security/magicBytes";
+import { MEDIA_SIZE_LIMITS, AllowedMediaType } from "@/lib/validation/media";
 import { getStorage } from "@/lib/storage";
 import { processImageWithSharp } from "@/lib/storage/imageProcessing";
 
@@ -175,7 +176,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Validate size discrepancy
+    // Validate size bounds (non-empty & within type limits)
     if (buffer.length === 0) {
       await db
         .update(memoryAssets)
@@ -188,6 +189,31 @@ export async function POST(request: Request, { params }: RouteParams) {
           error: {
             code: "UPLOAD_INVALID",
             message: "Uploaded file is empty",
+          },
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store, private",
+          },
+        }
+      );
+    }
+
+    const maxAllowedSize =
+      MEDIA_SIZE_LIMITS[asset.mimeType as AllowedMediaType] || 100 * 1024 * 1024;
+    if (buffer.length > maxAllowedSize) {
+      await db
+        .update(memoryAssets)
+        .set({ status: "FAILED", errorCode: "SIZE_LIMIT_EXCEEDED" })
+        .where(eq(memoryAssets.id, assetId));
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UPLOAD_INVALID",
+            message: `Uploaded file size (${buffer.length} bytes) exceeds limit for ${asset.mimeType}`,
           },
         },
         {
@@ -239,6 +265,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           .update(memoryAssets)
           .set({
             status: "READY",
+            sizeBytes: buffer.length,
             variants: result.manifest,
             width: result.originalWidth,
             height: result.originalHeight,
@@ -294,6 +321,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       .update(memoryAssets)
       .set({
         status: "READY",
+        sizeBytes: buffer.length,
         updatedAt: new Date(),
       })
       .where(eq(memoryAssets.id, assetId));
