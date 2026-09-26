@@ -62,4 +62,16 @@ describe("Phase 0: Storage Abstraction & Environment Guard", () => {
       })
     ).rejects.toThrow(/Path traversal violation/);
   });
+
+  it("rejects root base directory targeting in LocalMediaStorage", async () => {
+    const storage = new LocalMediaStorage({ baseDir: "./.dev-media" });
+    await expect(
+      storage.createUploadAuthorization({
+        assetId: "00000000-0000-0000-0000-000000000001",
+        storageKey: ".",
+        contentType: "image/webp",
+        sizeBytes: 1024,
+      })
+    ).rejects.toThrow(/Path traversal violation/);
+  });
 });

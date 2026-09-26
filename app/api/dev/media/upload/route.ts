@@ -16,9 +16,15 @@ export async function PUT(request: Request) {
   }
 
   // Prevent path traversal
-  const safeKey = key.replace(/\.\./g, "");
   const baseDir = path.resolve(process.env.LOCAL_MEDIA_DIR || "./.dev-media");
-  const filePath = path.join(baseDir, safeKey);
+  const filePath = path.resolve(baseDir, key);
+
+  if (filePath === baseDir || !filePath.startsWith(baseDir + path.sep)) {
+    return NextResponse.json(
+      { error: "Invalid storage key: path traversal detected" },
+      { status: 400 }
+    );
+  }
 
   try {
     const arrayBuffer = await request.arrayBuffer();

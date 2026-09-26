@@ -24,7 +24,7 @@ export class LocalMediaStorage implements MediaStorage {
   private getFilePath(storageKey: string): string {
     // Strict filesystem boundary containment check
     const candidate = path.resolve(this.baseDir, storageKey);
-    if (candidate !== this.baseDir && !candidate.startsWith(this.baseDir + path.sep)) {
+    if (candidate === this.baseDir || !candidate.startsWith(this.baseDir + path.sep)) {
       throw new Error(`Path traversal violation: storageKey "${storageKey}" escapes storage root`);
     }
     return candidate;

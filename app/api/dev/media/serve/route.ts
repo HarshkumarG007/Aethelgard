@@ -15,24 +15,30 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing storage key" }, { status: 400 });
   }
 
-  const safeKey = key.replace(/\.\./g, "");
   const baseDir = path.resolve(process.env.LOCAL_MEDIA_DIR || "./.dev-media");
-  const filePath = path.join(baseDir, safeKey);
+  const filePath = path.resolve(baseDir, key);
+
+  if (filePath === baseDir || !filePath.startsWith(baseDir + path.sep)) {
+    return NextResponse.json(
+      { error: "Invalid storage key: path traversal detected" },
+      { status: 400 }
+    );
+  }
 
   try {
     const fileBuffer = await fs.readFile(filePath);
 
     // Determine content type by extension
     let contentType = "application/octet-stream";
-    if (safeKey.endsWith(".webp")) contentType = "image/webp";
-    else if (safeKey.endsWith(".jpg") || safeKey.endsWith(".jpeg")) contentType = "image/jpeg";
-    else if (safeKey.endsWith(".png")) contentType = "image/png";
-    else if (safeKey.endsWith(".avif")) contentType = "image/avif";
-    else if (safeKey.endsWith(".mp4")) contentType = "video/mp4";
-    else if (safeKey.endsWith(".webm")) contentType = "video/webm";
-    else if (safeKey.endsWith(".mp3")) contentType = "audio/mpeg";
-    else if (safeKey.endsWith(".m4a")) contentType = "audio/mp4";
-    else if (safeKey.endsWith(".wav")) contentType = "audio/wav";
+    if (key.endsWith(".webp")) contentType = "image/webp";
+    else if (key.endsWith(".jpg") || key.endsWith(".jpeg")) contentType = "image/jpeg";
+    else if (key.endsWith(".png")) contentType = "image/png";
+    else if (key.endsWith(".avif")) contentType = "image/avif";
+    else if (key.endsWith(".mp4")) contentType = "video/mp4";
+    else if (key.endsWith(".webm")) contentType = "video/webm";
+    else if (key.endsWith(".mp3")) contentType = "audio/mpeg";
+    else if (key.endsWith(".m4a")) contentType = "audio/mp4";
+    else if (key.endsWith(".wav")) contentType = "audio/wav";
 
     return new Response(fileBuffer, {
       status: 200,
