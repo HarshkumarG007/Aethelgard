@@ -153,9 +153,9 @@ describe("Phase 7: Composer Modal, Voice Recorder & PWA Verification", () => {
     it("verifies multi-stage Dockerfile implements zero-root container security and standalone execution", async () => {
       const dockerfilePath = path.resolve(process.cwd(), "Dockerfile");
       const content = await fs.readFile(dockerfilePath, "utf8");
-      expect(content).toContain("FROM node:20-alpine AS base");
+      expect(content).toMatch(/FROM node:2[02]-alpine AS base/);
       expect(content).toContain("FROM base AS builder");
-      expect(content).toContain("FROM node:20-alpine AS runner");
+      expect(content).toMatch(/FROM node:2[02]-alpine AS runner/);
       expect(content).toContain("adduser --system --uid 1001 nextjs");
       expect(content).toContain("USER nextjs");
       expect(content).toContain('CMD ["node", "server.js"]');

@@ -273,6 +273,20 @@ describe("Phase 6: Hardening & Security Test Matrix (Gate §4)", () => {
       const res = await adminCreateMemoryRoute(maliciousReq);
       expect(res.status).toBe(403);
     });
+
+    it("rejects POST request with spoofed X-Forwarded-Host matching malicious Origin", () => {
+      const spoofedReq = new Request("https://sanctuary.example.com/api/auth/logout", {
+        method: "POST",
+        headers: {
+          origin: "https://attacker.example.com",
+          host: "attacker.example.com",
+          "x-forwarded-host": "attacker.example.com",
+        },
+      });
+
+      const isValid = validateOrigin(spoofedReq);
+      expect(isValid).toBe(false);
+    });
   });
 
   // Matrix Row 12: SQL Injection payload

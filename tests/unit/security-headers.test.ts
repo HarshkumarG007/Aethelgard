@@ -34,4 +34,20 @@ describe("Phase 0: Baseline Security Headers & CSP", () => {
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("form-action 'self'");
   });
+
+  it("permits microphone=(self) for voice letter recordings while keeping camera disabled", () => {
+    const headers = getSecurityHeaders({ isProduction: true });
+    expect(headers["Permissions-Policy"]).toContain("microphone=(self)");
+    expect(headers["Permissions-Policy"]).toContain("camera=()");
+  });
+
+  it("includes R2 domain in connect-src, img-src, and media-src for presigned PUT/GET", () => {
+    const csp = buildContentSecurityPolicy({
+      r2Domain: "test-account.r2.cloudflarestorage.com",
+    });
+
+    expect(csp).toContain("connect-src 'self' https://test-account.r2.cloudflarestorage.com");
+    expect(csp).toContain("img-src 'self' blob: data: https://test-account.r2.cloudflarestorage.com");
+    expect(csp).toContain("media-src 'self' blob: https://test-account.r2.cloudflarestorage.com");
+  });
 });

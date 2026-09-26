@@ -53,15 +53,15 @@
 
 ## 🌟 What is Aethelgard?
 
-**Aethelgard** is not a social network, a public feed, or a generic photo-dumping dashboard. It is an **intimate digital sanctuary** created specifically for two individuals to preserve their shared relationship story—written memories, scanned letters, milestones, voice notes, and photographs—across eternity.
+**Aethelgard** is not a social network, a public feed, or an algorithmic dashboard. It is an **intimate digital sanctuary** created specifically for two individuals to preserve their shared relationship story—written memories, scanned letters, milestones, voice notes, and photographs—with enduring fidelity.
 
 ### The Layman's Explanation
 Think of Aethelgard as a **hand-bound parchment book locked inside a celestial observatory**:
 - **Only two people can enter:** There are no usernames, emails, or password-recovery trackers. Entry requires speaking a secret passphrase into the portal threshold.
 - **Memories are organized by narrative emotion:** Instead of algorithmic engagement feeds, memories are woven into chapters, emotional currents (*Wonder, Longing, Nostalgia, Peace, Joy*), and chronological timelines.
 - **A multi-sensory experience:** You can explore the archive through a quiet, accessible 2D reader, or ascend into an interactive 3D celestial archipelago where floating islands represent chapters of your life.
-- **Your voice is preserved forever:** You can record audio letters directly in the browser, watching real-time soundwaves ripple across the screen as you speak.
-- **Procedural soundscapes:** An ambient celestial drone plays offline through your speakers, calibrated in resonant fifths to anchor quiet, contemplative reading.
+- **Acoustic voice recording:** You can record audio letters directly in the browser, watching real-time soundwaves ripple across the screen as you speak.
+- **Procedural soundscapes:** An ambient celestial drone synthesizes offline directly through your browser, calibrated in resonant fifths to anchor quiet, contemplative reading.
 
 ---
 
@@ -80,10 +80,10 @@ Think of Aethelgard as a **hand-bound parchment book locked inside a celestial o
 ```
 
 1. **2D Canonical Authority:** The 2D sanctuary interface is the absolute source of truth. The 3D archipelago canvas is a disposable, client-only visual enhancement. The application is 100% operable with keyboard navigation, screen readers, and low-end mobile devices without WebGL.
-2. **Zero-Knowledge & Private Storage Contract:** Media files in Cloudflare R2 are strictly private. Raw object paths are never exposed publicly. Uploads use server-authorized presigned `PUT` requests, and media downloads use short-lived (5-minute) signed bearer tokens.
+2. **Private Storage & Access-Controlled Media:** Media objects in Cloudflare R2 are strictly private. Raw object paths are never exposed publicly. Uploads use server-authorized presigned `PUT` requests, and media downloads use short-lived (5-minute) signed bearer tokens.
 3. **Argon2id Authentication:** Passphrases are submitted over TLS and verified server-side with memory-hard Argon2id hashes. No client-side hashing schemes, and zero session data stored in `localStorage` or `sessionStorage`.
 4. **Attention-as-the-Interface:** Interfaces remain quiet and deliberate. Hover and proximity create subtle affordances; clicks confirm intent. No erratic romantic animations or notification noise.
-5. **Soft-Deletion Invariant:** Content is never obliterated immediately. Deletions flag records as soft-deleted (`deletedAt = now()`), cascading to assets and preserving archival restore points.
+5. **Soft-Deletion Lifecycle:** Content is never destroyed abruptly. Deletions flag database records as soft-deleted (`deletedAt = now()`), cascading to assets in application queries and preserving archival recovery points until an explicit administrative maintenance workflow is executed.
 
 ---
 
@@ -121,7 +121,7 @@ Think of Aethelgard as a **hand-bound parchment book locked inside a celestial o
  │                                         │                                        │
  │  ┌──────────────────────────────────────▼─────────────────────────────────────┐  │
  │  │ Server Data Layer (Drizzle ORM)                                            │  │
- │  │ • Parameterized Queries (Zero SQLi)  • Opaque UUID Anti-Enumeration        │  │
+ │  │ • Parameterized Queries (Drizzle ORM)    • Opaque UUID Anti-Enumeration        │  │
  │  │ • Multi-Step Write Transactions      • Soft-Deletion Cascade Filters       │  │
  │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
  │                                         │                                        │
@@ -574,7 +574,7 @@ Aethelgard is turnkey-ready for three primary production deployment targets:
 1. Push code to GitHub and connect repository to [Vercel](https://vercel.com).
 2. Provision a PostgreSQL database on [Neon](https://neon.tech) or [Supabase](https://supabase.com).
 3. Set production environment variables in Vercel Project Settings (see [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md)).
-4. Run schema migration: `DATABASE_URL="postgresql://..." npm run db:push`.
+4. Run schema migration: `DATABASE_URL="postgresql://..." npm run db:migrate` (or `db:push` for rapid prototyping).
 
 ### Option B: Docker Container on Fly.io or Railway (Container Turnkey)
 Deploy using the multi-stage, security-hardened [`Dockerfile`](Dockerfile):
@@ -586,9 +586,9 @@ fly deploy
 ```
 
 ### Option C: Turnkey Self-Hosted Docker Stack on a VPS (Hetzner, DigitalOcean)
-Use [`docker-compose.prod.yml`](docker-compose.prod.yml) with automatic Let's Encrypt TLS:
+Use [`docker-compose.prod.yml`](docker-compose.prod.yml) featuring an integrated Caddy automated Let's Encrypt TLS reverse proxy:
 ```bash
-# Launch Next.js standalone runner + PostgreSQL 16
+# Launch Next.js standalone runner + PostgreSQL 16 + Caddy TLS reverse proxy
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
@@ -624,5 +624,5 @@ npm run build
 
 ## 📜 License & Privacy
 
-**Aethelgard is strictly private, proprietary software.**  
-Created for personal relationship preservation and protected under zero-knowledge architectural contracts. No tracking, no third-party telemetry, no public data sharing.
+**Code License:** The software codebase is licensed under the [Apache License 2.0](LICENSE).
+**Data & Privacy:** Your personal memories, media, voice letters, and relationship records hosted by any instance of Aethelgard belong entirely and sovereignly to you. Aethelgard enforces zero telemetry, zero analytics tracking, zero public S3/R2 buckets, and strict server-side authorization boundaries on all user data.

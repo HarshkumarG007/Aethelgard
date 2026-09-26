@@ -28,27 +28,22 @@ export function validateOrigin(request: Request): boolean {
     return false;
   }
 
-  // 3. Match against configured site origin
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (siteUrl) {
+  // 3. Match against configured canonical site origin (NEXT_PUBLIC_SITE_ORIGIN or NEXT_PUBLIC_SITE_URL)
+  const configuredOrigin =
+    process.env.NEXT_PUBLIC_SITE_ORIGIN || process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (configuredOrigin) {
     try {
-      const expectedOrigin = new URL(siteUrl).origin;
+      const expectedOrigin = new URL(configuredOrigin).origin;
       if (originUrl.origin === expectedOrigin) {
         return true;
       }
     } catch {
-      // URL parsing failed on siteUrl; fall through
+      // URL parsing failed on configuredOrigin; fall through
     }
   }
 
-  // 4. Match against request Host header (same-origin fallback)
-  const host =
-    request.headers.get("x-forwarded-host") || request.headers.get("host");
-  if (host && originUrl.host === host) {
-    return true;
-  }
-
-  // 5. In local development / test environments, permit localhost and 127.0.0.1
+  // 4. In local development / test environments, permit localhost and 127.0.0.1
   if (process.env.NODE_ENV !== "production") {
     if (
       originUrl.hostname === "localhost" ||
@@ -58,6 +53,6 @@ export function validateOrigin(request: Request): boolean {
     }
   }
 
-  // Cross-origin or unrecognized origin rejected
+  // Strict rejection: untrusted host header or cross-origin request rejected
   return false;
 }

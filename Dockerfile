@@ -1,6 +1,6 @@
 # Multi-Stage Production Dockerfile for Aethelgard
-# Base Node 20 LTS Alpine Image
-FROM node:20-alpine AS base
+# Base Node 22 LTS Alpine Image (Matches package.json engines >=22.0.0)
+FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 3: Minimal Production Runner
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

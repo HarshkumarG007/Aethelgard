@@ -2,7 +2,7 @@
 
 ## 1. Overview & Architectural Principles
 
-Aethelgard is designed as a sovereign, private relationship sanctuary engineered with strict zero-knowledge security guarantees:
+Aethelgard is designed as a sovereign, private relationship sanctuary engineered with strict server-side authorization and cryptographic protection:
 - **Private Media Storage:** Media objects in Cloudflare R2 are strictly private. No public bucket access is permitted; all client downloads and uploads are negotiated via ephemeral, server-authorized presigned URLs.
 - **Argon2id Authentication:** Passphrases never hit storage in plaintext. Verification uses memory-hard Argon2id hashes server-side.
 - **Cryptographic Session Security:** `SameSite=Strict`, `HttpOnly`, `Secure` encrypted session cookies with constant-time HMAC verification.
@@ -90,7 +90,7 @@ Ensure all following variables are populated in the production environment:
 3. **Run Schema Migrations:**
    From your local development machine or CI pipeline:
    ```bash
-   DATABASE_URL="postgresql://..." npm run db:push
+   DATABASE_URL="postgresql://..." npm run db:migrate
    ```
 
 ---
@@ -155,9 +155,11 @@ Aethelgard ships with a production multi-stage, security-hardened `Dockerfile` a
    - `backfill`: Seed or backfill data if necessary.
    - `contract`: Remove superseded columns only in subsequent maintenance windows.
 2. **Execute Schema Migration:**
+   For production deployments, apply versioned migrations:
    ```bash
-   npm run db:push
+   npm run db:migrate
    ```
+   *(Note: `npm run db:push` is available for rapid prototyping in development, but versioned forward-compatible migrations are recommended in production).*
 3. **Application Rollback:**
    If a regression is identified in application code:
    - Re-deploy previous immutable Git commit hash without reverting forward-compatible database columns.

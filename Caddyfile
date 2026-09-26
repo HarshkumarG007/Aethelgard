@@ -1,0 +1,18 @@
+# Caddyfile — Automated Let's Encrypt TLS Reverse Proxy for Aethelgard
+{
+    # Global options
+    admin off
+    auto_https disable_redirects
+}
+
+{$DOMAIN:localhost} {
+    encode gzip zstd
+
+    # Security: Proxy to Next.js standalone runner on internal Docker network
+    reverse_proxy app:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

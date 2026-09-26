@@ -4,7 +4,16 @@ export interface SecurityHeaderOptions {
 }
 
 export function buildContentSecurityPolicy(options: SecurityHeaderOptions = {}): string {
-  const { r2Domain, isProduction = process.env.NODE_ENV === "production" } = options;
+  const isProduction = options.isProduction ?? process.env.NODE_ENV === "production";
+
+  // Resolve R2 domain from options or environment variables
+  const resolvedR2Domain =
+    options.r2Domain ||
+    (process.env.R2_ACCOUNT_ID
+      ? `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+      : process.env.CLOUDFLARE_R2_ACCOUNT_ID
+      ? `${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+      : undefined);
 
   const scriptSrc = isProduction
     ? "'self'"
@@ -14,10 +23,17 @@ export function buildContentSecurityPolicy(options: SecurityHeaderOptions = {}):
 
   const imgSources = ["'self'", "blob:", "data:"];
   const mediaSources = ["'self'", "blob:"];
+  const connectSources = ["'self'"];
 
-  if (r2Domain) {
-    imgSources.push(`https://${r2Domain}`);
-    mediaSources.push(`https://${r2Domain}`);
+  if (resolvedR2Domain) {
+    imgSources.push(`https://${resolvedR2Domain}`);
+    mediaSources.push(`https://${resolvedR2Domain}`);
+    connectSources.push(`https://${resolvedR2Domain}`);
+  } else if (isProduction) {
+    // If specific R2 domain is not resolved, allow wildcard R2 storage domain in production
+    imgSources.push("https://*.r2.cloudflarestorage.com");
+    mediaSources.push("https://*.r2.cloudflarestorage.com");
+    connectSources.push("https://*.r2.cloudflarestorage.com");
   }
 
   const directives: Record<string, string[]> = {
@@ -26,7 +42,7 @@ export function buildContentSecurityPolicy(options: SecurityHeaderOptions = {}):
     "style-src": [styleSrc],
     "img-src": imgSources,
     "media-src": mediaSources,
-    "connect-src": ["'self'"],
+    "connect-src": connectSources,
     "font-src": ["'self'"], // Self-hosted fonts exclusively, zero external CDN requests
     "frame-src": ["'none'"],
     "object-src": ["'none'"],
@@ -48,7 +64,7 @@ export function getSecurityHeaders(options: SecurityHeaderOptions = {}): Record<
     "Content-Security-Policy": buildContentSecurityPolicy(options),
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+    "Permissions-Policy": "camera=(), microphone=(self), geolocation=(), browsing-topics=()",
     "X-Frame-Options": "DENY",
   };
 

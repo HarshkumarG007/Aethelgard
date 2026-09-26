@@ -22,9 +22,12 @@ export class LocalMediaStorage implements MediaStorage {
   }
 
   private getFilePath(storageKey: string): string {
-    // Sanitize to prevent path traversal
-    const safeKey = storageKey.replace(/\.\./g, "");
-    return path.join(this.baseDir, safeKey);
+    // Strict filesystem boundary containment check
+    const candidate = path.resolve(this.baseDir, storageKey);
+    if (candidate !== this.baseDir && !candidate.startsWith(this.baseDir + path.sep)) {
+      throw new Error(`Path traversal violation: storageKey "${storageKey}" escapes storage root`);
+    }
+    return candidate;
   }
 
   async createUploadAuthorization(params: UploadAuthParams): Promise<UploadAuth> {

@@ -50,4 +50,16 @@ describe("Phase 0: Storage Abstraction & Environment Guard", () => {
     const storage = resolveMediaStorage(prodEnvComplete);
     expect(storage).toBeInstanceOf(R2MediaStorage);
   });
+
+  it("rejects path traversal attempts in LocalMediaStorage", async () => {
+    const storage = new LocalMediaStorage({ baseDir: "./.dev-media" });
+    await expect(
+      storage.createUploadAuthorization({
+        assetId: "00000000-0000-0000-0000-000000000001",
+        storageKey: "../../../etc/passwd",
+        contentType: "image/webp",
+        sizeBytes: 1024,
+      })
+    ).rejects.toThrow(/Path traversal violation/);
+  });
 });
